@@ -1,0 +1,51 @@
+/**
+ * @file    gpu/host_resource_heap.cpp
+ * @brief   Guest VA -> ResourceType registry backing FromGuest resolution.
+ *
+ * @copyright Copyright (c) 2026 Tom Clay <tomc@tctechstuff.com>
+ *            All rights reserved.
+ * @license   BSD 3-Clause License
+ *            See LICENSE file in the project root for full license text.
+ */
+#include "gpu/host_resource_heap.h"
+
+#include <mutex>
+#include <shared_mutex>
+#include <unordered_map>
+
+namespace sylpheed::gpu {
+
+namespace {
+
+// FromGuest rejects unregistered (sentinel) VAs, and the stored type lets
+// Release/DestroyByType dispatch without reading the object.
+std::shared_mutex g_registry_mutex;
+std::unordered_map<u32, ResourceType> g_registry;
+
+} // namespace
+
+void HostResourceHeap::Register(u32 guest_va, ResourceType type) {
+  std::unique_lock lock(g_registry_mutex);
+  g_registry[guest_va] = type;
+}
+
+void HostResourceHeap::Unregister(u32 guest_va) {
+  std::unique_lock lock(g_registry_mutex);
+  g_registry.erase(guest_va);
+}
+
+bool HostResourceHeap::IsRegistered(u32 guest_va) {
+  std::shared_lock lock(g_registry_mutex);
+  return g_registry.count(guest_va) != 0;
+}
+
+bool HostResourceHeap::GetType(u32 guest_va, ResourceType *out_type) {
+  std::shared_lock lock(g_registry_mutex);
+  auto it = g_registry.find(guest_va);
+  if (it == g_registry.end())
+    return false;
+  *out_type = it->second;
+  return true;
+}
+
+} // namespace sylpheed::gpu

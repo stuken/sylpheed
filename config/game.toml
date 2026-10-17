@@ -1,0 +1,10 @@
+# Project Sylpheed's own functions that the native renderer's tooling hooks.
+# Identified from their bodies and the D3D calls they make.
+
+[functions]
+# The 3D frame: scene, motion blur composite, haze, luminance, bloom and the
+# FinalScenePass tonemap into the back buffer. Its caller 0x822F6910 then draws
+# the debug-line overlay through a D3D callback stream (see d3d.toml). Title
+# and menu frames never reach it, so its first call marks the start of a
+# mission.
+0x822CD4E8 = { name = "Sylpheed_RenderScene" }

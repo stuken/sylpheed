@@ -1,0 +1,8 @@
+[submodule "thirdparty/plume"]
+	path = thirdparty/plume
+	url = https://github.com/stuken/plume.git
+	branch = rr6
+[submodule "thirdparty/XenosRecomp"]
+	path = thirdparty/XenosRecomp
+	url = https://github.com/stuken/reblue-XenosRecomp.git
+	branch = sylpheed

@@ -1,1 +1,116 @@
 [functions]
+0x824E4BC8 = {}
+0x824DDFE0 = {}
+0x823D2178 = {}
+0x824DCFC8 = {}
+0x823D2208 = {}
+0x823D2238 = {}
+0x823D21A8 = {}
+0x823D21D8 = {}
+0x823D2288 = {}
+0x823D22B8 = {}
+0x823D22E8 = {}
+0x823D2318 = {}
+0x823D2348 = {}
+0x827E8750 = {}
+
+# Tail-call target of thunk sub_824AB268 (b 0x824AD380); otherwise REX_FATAL at runtime.
+0x824AD380 = {}
+
+# Entries that follow a tail-call bctr/b (or a noreturn bl) and are reached only
+# through vtables/function tables or lis+addi function pointers. Analysis
+# folds them into the preceding function, so they never get registered.
+0x821EA7D8 = {}
+0x8240D370 = {}
+0x82423EB0 = {}
+0x82423F38 = {}
+0x824D5218 = {}
+0x824E2EF8 = {}
+0x824E2F10 = {}
+0x824E3D98 = {}
+0x824E4F68 = {}
+0x824E4F70 = {}
+0x824E4F78 = {}
+0x824E4FA0 = {}
+0x824E4FA8 = {}
+0x824E4FB8 = {}
+0x824FDC18 = {}
+0x82505A30 = {}
+0x82505A50 = {}
+0x82505A70 = {}
+0x82505BF0 = {}
+0x82505C10 = {}
+0x82505C30 = {}
+0x82505C50 = {}
+0x82505C70 = {}
+0x82505C90 = {}
+0x82505CB0 = {}
+0x82505CD0 = {}
+0x82505CF0 = {}
+0x82505D10 = {}
+0x82507590 = {}
+0x82610600 = {}
+0x82660BD8 = {}
+0x82660F08 = {}
+0x82660F30 = {}
+0x82660F58 = {}
+0x82660F80 = {}
+0x826613B0 = {}
+0x826613D0 = {}
+0x826613E0 = {}
+0x826613F0 = {}
+0x82661400 = {}
+0x82661410 = {}
+0x82661420 = {}
+0x82661430 = {}
+0x82661440 = {}
+0x82661450 = {}
+0x82661460 = {}
+0x826C9240 = {}
+0x826F3480 = {}
+0x826F3490 = {}
+0x82787280 = {}
+0x827EF118 = {}
+
+# C++ catch funclets that end in `bl 0x825F3568` (rethrow, noreturn). Analysis doesn't
+# know the call never returns, so these ran on through the trailing EH data words into
+# the next funclet and emitted gotos to labels owned by that funclet (clang:
+# "use of undeclared label"). Bound each one at its rethrow.
+0x821BB520 = { end = 0x821BB574 }
+0x82216B90 = { end = 0x82216C0C }
+0x8224D518 = { end = 0x8224D56C }
+0x82270C98 = { end = 0x82270CDC }
+0x822A9698 = { end = 0x822A96EC }
+0x822BF54C = { end = 0x822BF5A0 }
+0x822C06C8 = { end = 0x822C071C }
+0x823122E4 = { end = 0x82312338 }
+0x8231275C = { end = 0x823127B0 }
+0x82312C64 = { end = 0x82312CB8 }
+0x82320770 = { end = 0x823207C4 }
+0x82333728 = { end = 0x8233377C }
+0x8234959C = { end = 0x823495F0 }
+0x823E8E80 = { end = 0x823E8ED4 }
+
+
+# bctr at 0x82657C04: index is bounded by `cmplwi cr6,r9,0xE` at 0x82657B78, so the
+# u16 table at 0x820313E0 has 15 entries. Auto-detection reads 24 and runs into the
+# next table at 0x82031400, producing bogus targets in sub_82658678 and beyond.
+[[switch_tables]]
+address = 0x82657C04
+register = 9
+labels = [
+    0x82657C48, 0x82657C50, 0x82657C58, 0x82657C60, 0x82657C68,
+    0x82657C70, 0x82657C78, 0x82657C80, 0x82657C88, 0x82657C90,
+    0x82657C98, 0x82657CA4, 0x82657CAC, 0x82657CB4, 0x82657CBC,
+]
+
+# XAPI fibers. The guest's own SwitchToFiber swaps r1 and returns through the
+# saved LR, which recompiled code can't do, so route all five to the SDK's
+# host-fiber implementations (src/kernel/crt/threading.cpp). The guest fiber
+# block layout matches X_FIBER_CONTEXT (0xA50 bytes).
+[rexcrt]
+ConvertThreadToFiber = 0x824AB048
+ConvertFiberToThread = 0x824AB0D8
+CreateFiber = 0x824AB128
+DeleteFiber = 0x824AB208
+SwitchToFiber = 0x824AB268

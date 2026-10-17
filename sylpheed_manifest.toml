@@ -13,5 +13,8 @@ setjmp_address = 0x82801170
 longjmp_address = 0x825f3f30
 
 includes = [
-    "sylpheed_config.toml"
+    "sylpheed_config.toml",
+    "config/d3d.toml",
+    "config/xapi.toml",
+    "config/game.toml"
 ]

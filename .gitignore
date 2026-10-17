@@ -1,3 +1,5 @@
 /assets/
 /src/*.generated.*
 /out/
+
+.vs/*

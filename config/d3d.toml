@@ -1,0 +1,101 @@
+# XDK 2.0.3215 Direct3D, as statically linked into Project Sylpheed's
+# default.xex (title update 0.0.1.2, which codegen applies from default.xexp).
+#
+# Identified by matching against rr6's XDK 2.0.2135 D3D (instruction-stream
+# similarity, then call-graph propagation) and confirming each function from
+# its body: the device fields it touches, its argument registers and its
+# callers. Names follow rr6 and reblue where the function is the same API.
+# The renderer's hooks bind to the names marked "hook" below; the rest name
+# the functions the device layout in src/gpu/d3d.h cites.
+#
+# D3DDevice layout (allocation 0x5000, Direct3D_CreateDevice):
+#   +0x0000  dirty masks, 5 x u64        +0x0028 ring {write, end, limit}
+#   +0x0034  device reference count      +0x0038 m_SetRenderStateCall[96]
+#   +0x01B8  m_SetSamplerStateCall[20]   +0x0208 m_GetRenderStateCall[96]
+#   +0x0388  m_GetSamplerStateCall[20]   seeded from {Get, Set, Default}
+#            tables at 0x82870DC8 (render) and 0x82871248 (sampler) by
+#            D3D__InitializeStateTables
+#   +0x0400  fetch constants, 32 x 24 bytes; stream i's vertex fetch at
+#            +0x6F8 - 8 * i, with SetStreamSource's offset folded in
+#   +0x0700  VS float constants          +0x1700 PS float constants
+#   +0x27A0  user clip planes[6]         +0x2844 Xenos register shadows
+#            (rr6's at -0x4C0)
+#   +0x2D20  vertex declaration          +0x2D48 staged blend, blend flags
+#   +0x2A38  flags bytes                 +0x2F90 FVF
+#   +0x2F94  index buffer                +0x2F98 render targets[4]
+#   +0x2FA8  depth stencil               +0x2FAC stream vertex buffers[16]
+#   +0x2FF0  stream strides / 4          +0x3000 textures[26]
+#   +0x3068  viewport                    +0x3080 scissor rect
+#   +0x3090  pixel shader                +0x3094 vertex shader
+#   +0x34EC, +0x3508  critical sections  +0x4FD8 creation behavior flags
+
+[functions]
+# Shaders and declarations
+0x824B8830 = { name = "D3DDevice_SetVertexShaderConstantFN" } # (device, start, data, count, mask)
+0x824B8940 = { name = "D3DDevice_SetPixelShaderConstantFN" }
+0x824B8BF0 = { name = "D3DDevice_SetPixelShader" } # hook; stores +0x3090
+0x824B8E28 = { name = "D3DDevice_SetVertexShaderBody" } # stores +0x3094
+0x824B8F78 = { name = "D3DDevice_SetVertexShader" } # hook; tail-calls the body
+0x824B8FC8 = { name = "D3DDevice_SetVertexDeclaration" } # hook
+0x824B8FE8 = { name = "D3DDevice_CreateVertexDeclaration" } # hook
+0x824BA510 = { name = "D3DDevice_CreatePixelShader" } # hook; 0x38-byte header
+0x824BA600 = { name = "D3DDevice_CreateVertexShader" } # hook; 0x250-byte header
+0x824BA6D0 = { name = "D3DDevice_SetFVF" } # hook
+
+# Bindings and viewport
+0x824B3C38 = { name = "D3DDevice_SetScissorRect" }
+0x824B3D00 = { name = "D3DDevice_SetViewport" }
+0x824B3F40 = { name = "D3DDevice_SetStreamSource" }
+0x824B40F0 = { name = "D3DDevice_SetIndices" }
+0x824B4518 = { name = "D3DDevice_SetRenderTarget" } # hook; D3D-internal callers
+0x824B4848 = { name = "D3DDevice_SetDepthStencilSurface" } # hook
+0x824B4B28 = { name = "D3DDevice_SetSurfaces" } # hook; (device, {DS, RT0..3}, flags)
+0x824BE880 = { name = "D3DDevice_SetTexture" } # hook; (device, sampler, texture, dirty mask)
+
+# Resources
+0x824BE638 = { name = "D3DDevice_CreateSurface" } # (w, h, format, msaa, params)
+0x824BE760 = { name = "D3DSurface_GetDesc" }
+0x824C15D0 = { name = "D3DResource_GetType" }
+0x824C1660 = { name = "D3DResource_Destroy" } # hook
+0x824C1CD0 = { name = "D3DDevice_CreateVertexBuffer" }
+0x824C1E08 = { name = "D3DDevice_CreateIndexBuffer" }
+
+# Drawing
+0x824BE9F8 = { name = "D3DDevice_BeginVertices" } # hook
+0x824BEEA8 = { name = "D3DDevice_EndVertices" } # hook
+0x824BEEC8 = { name = "D3DDevice_DrawVerticesUP" } # hook
+0x824BEF28 = { name = "D3DDevice_DrawVertices" } # hook
+0x824BF330 = { name = "D3DDevice_DrawIndexedVertices" } # hook
+0x824C33F8 = { name = "D3DDevice_ClearF" } # hook; (device, flags, rect, float4 color, Z, stencil)
+0x824C3CB0 = { name = "D3DDevice_Clear" } # hook
+0x824C8788 = { name = "D3DDevice_Resolve" } # hook
+0x824CF580 = { name = "D3DDevice_Swap" } # hook; called directly by the game loop
+0x824CFB30 = { name = "D3DDevice_Present" } # hook
+
+# Device and command ring
+0x824BFEC0 = { name = "D3D__AllocCommandMemory" } # hook; (device, dwords, align)
+0x824C0B00 = { name = "D3D__MakeSpace" } # hook
+0x824C0DE0 = { name = "D3DDevice_InsertCallback" } # hook; (device, type, fn, context), run at the next vblank
+0x824CEE50 = { name = "D3D__BeginCallbackStream" } # sets +0x2A38 bit 0x04, records into +0x32D8
+0x824CEEB8 = { name = "D3D__EndCallbackStream" } # hook; replay would wait on the GPU
+0x824CEF50 = { name = "D3D__StreamCallback" } # hook; (device, fn, context) run at GPU time
+0x824CEFA8 = { name = "D3D__StreamPackets" } # hook; (device, type, data, bytes) after a state flush
+# The packet writer a stream callback builds its draws with, at GPU time, into
+# command space the GPU set aside. Sylpheed's only callback stream is its
+# debug-line overlay (0x822F6910; callbacks 0x822F64A0 line list, 0x822F6590
+# triangle strip, 0x822F6680): AI routes, squadron paths and bounding boxes,
+# queued by 0x822F5150/0x822F5240/0x822F54D8 and switched off in the retail
+# game, which still opens and closes the stream every 3D frame. All hooked: the
+# native renderer runs the callbacks on the CPU when their packets are recorded.
+0x824CEA78 = { name = "D3D__StreamWriterBegin" } # hook; (writer, stream context)
+0x824CEB00 = { name = "D3D__StreamWriterAlloc" } # hook; (writer, bytes, align) -> data
+0x824CEBD8 = { name = "D3D__StreamWriterDraw" } # hook; (writer, primitive, vertices, data)
+0x824CED30 = { name = "D3D__StreamWriterNextPass" } # hook; (writer, &pass) -> more passes
+0x824CEAE0 = { name = "D3D__StreamWriterEnd" } # hook; (writer)
+0x824C0E38 = { name = "D3DDevice_SetRingBufferParameters" }
+0x824C27F8 = { name = "D3D_AllocDevice" }
+0x824C2920 = { name = "D3DDevice_Release" }
+0x824C2AF0 = { name = "Direct3D_CreateDevice" } # hook
+0x824C7508 = { name = "D3D__InitializeStateTables" } # called by the CreateDevice hook
+0x824C7C10 = { name = "D3DDevice_Initialize" }
+0x824C7E78 = { name = "D3DDevice_Shutdown" }

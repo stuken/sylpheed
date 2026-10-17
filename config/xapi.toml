@@ -1,0 +1,12 @@
+# XAPI functions statically linked into Project Sylpheed's default.xex that
+# the native renderer and its test tooling hook. Identified from their bodies.
+
+[functions]
+0x824A98D8 = { name = "XPhysicalAlloc" } # (size, address, alignment, protect) -> MmAllocatePhysicalMemoryEx
+0x824A9960 = { name = "XPhysicalFree" } # (va) -> MmFreePhysicalMemory
+0x824AB8D0 = { name = "XInputGetCapabilities" } # tail-calls XamInputGetCapabilities
+0x824AB8D8 = { name = "XInputGetState" } # (user, state) -> XamInputGetState(user, 0, state)
+0x824AB8E8 = { name = "XInputSetState" } # (user, vibration) -> XamInputSetState
+# (user, reserved, keystroke) -> XamInputGetKeystrokeEx; user 0xFF means any.
+# Sylpheed's pad class (0x82457838) drains it every poll into an event queue.
+0x824AB900 = { name = "XInputGetKeystroke" }
