@@ -22,6 +22,7 @@
 #include <plume_d3d12.h>
 #endif
 
+#include "gpu/gpu_pass_timer.h"
 #include "gpu/gpu_profiling.h"
 #include "gpu/guest_buffers.h"
 
@@ -61,6 +62,7 @@ void BeginCommandList(VideoState &s) {
   s.command_list->setGraphicsDescriptorSet(s.texture_descriptor_set.get(), 2);
   s.command_list->setGraphicsDescriptorSet(s.sampler_descriptor_set.get(), 3);
   s.command_list_open = true;
+  perf::GpuListOpened(s, cur);
   s.dirtyStates.vertexStreamFirst = 0;
   s.dirtyStates.vertexStreamLast = 15;
   s.dirtyStates.indices = true;
@@ -227,6 +229,7 @@ void AdvanceAndWaitReused(VideoState &s) {
   if (s.command_list_submitted[slot]) {
     s.queue->waitForCommandFence(s.fences[slot].get());
     s.command_list_submitted[slot] = false;
+    perf::GpuSlotRetired(s, slot);
 #if defined(REXGLUE_ENABLE_PROFILING) && defined(SYLPHEED_D3D12)
     if (auto *ctx = GpuProfilerCtx()) {
       TracyD3D12NewFrame(ctx);
@@ -241,6 +244,7 @@ void SubmitOpenListLocked(VideoState &s) {
   if (!s.command_list_open)
     return;
   const u32 cur = s.frame.load(std::memory_order_relaxed);
+  perf::GpuListClosing(s, cur);
   s.command_lists[cur]->end();
   s.command_list_open = false;
   const plume::RenderCommandList *lists[] = {s.command_lists[cur].get()};

@@ -15,6 +15,7 @@
 
 #include "core/logging.h"
 #include "core/settings.h"
+#include "gpu/gpu_pass_timer.h"
 
 REXCVAR_DEFINE_INT32(sylpheed_perf_stats, 0, kCvarGroup,
                      "Log frame and renderer hot-path timings every N "
@@ -162,6 +163,7 @@ void OnPresent() {
     if (bytes)
       line += std::format(", {}/frame", FormatBytes(bytes / n));
   }
+  line += TakeGpuPassReport(n);
   if (!line.empty())
     SYLPHEED_INFO("[perf] per counter:{}", line);
   const auto h = RefreshHistogram();

@@ -73,6 +73,13 @@ struct GuestTexture {
   // This texture box-filtered down to a lower-scale target's resolution, for
   // draws into that target (BuildGuestScaleCopiesLocked).
   std::unique_ptr<GuestTexture> guestScaleCopy;
+  // What guestScaleCopy was last filtered from: the sampled texture and its
+  // contentVersion then. A pass binding the same unchanged source reuses it.
+  const GuestTexture *guestScaleCopyFrom = nullptr;
+  u64 guestScaleCopyVersion = 0;
+  // Bumped whenever the texture may have been written: bound as a draw or
+  // clear target, copied or resolved into, resized. Never decreases.
+  u64 contentVersion = 0;
   // This texture FXAA'd, for the colour grading pass (BuildFxaaCopyLocked).
   std::unique_ptr<GuestTexture> fxaaCopy;
   u32 resolveLevel = 0;

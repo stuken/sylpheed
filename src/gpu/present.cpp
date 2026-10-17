@@ -9,6 +9,7 @@
  * @license   BSD 3-Clause License
  *            See LICENSE file in the project root for full license text.
  */
+#include "gpu/gpu_pass_timer.h"
 #include "gpu/frame.h"
 
 #include <atomic>
@@ -477,6 +478,7 @@ void Video::Present(GuestTexture *frontBuffer) {
       rt && rt->texture && rt->descriptorIndex != kInvalidDescriptorIndex &&
       rt->sampleCount == plume::RenderSampleCount::COUNT_1;
   BeginCommandList(s);
+  perf::GpuPassMark(s, "present");
   if (have_rt_blit) {
     RecordPresentPass(s, rt, back, back_fb);
   } else {
@@ -489,6 +491,7 @@ void Video::Present(GuestTexture *frontBuffer) {
   }
 
   const u32 cur = s.frame.load(std::memory_order_relaxed);
+  perf::GpuListClosing(s, cur);
   s.command_lists[cur]->end();
   s.command_list_open = false;
 

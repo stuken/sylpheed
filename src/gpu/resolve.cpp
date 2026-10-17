@@ -8,6 +8,7 @@
  * @license   BSD 3-Clause License
  *            See LICENSE file in the project root for full license text.
  */
+#include "gpu/gpu_pass_timer.h"
 #include "gpu/frame.h"
 
 #include <algorithm>
@@ -93,6 +94,7 @@ bool CopySurfaceToTextureLocked(VideoState &s, GuestTexture *src,
     return false;
 
   s.draw_framebuffer_bound = false;
+  ++dst->contentVersion;
 
   const bool dims_match =
       src->width == dst->width && src->height == dst->height;
@@ -291,6 +293,7 @@ bool ClearColorTargetLocked(VideoState &s, GuestTexture *dst,
   if (!s.command_list_open)
     return false;
   s.draw_framebuffer_bound = false;
+  ++dst->contentVersion;
 
   plume::RenderFramebuffer *dst_fb = GetFramebuffer(s, dst, nullptr);
   if (!dst_fb)
@@ -426,6 +429,7 @@ bool CopySurfaceRegionLocked(VideoState &s, GuestTexture *src, GuestTexture *dst
       src->sampleCount != plume::RenderSampleCount::COUNT_1 ||
       dst->sampleCount != plume::RenderSampleCount::COUNT_1)
     return false;
+  ++dst->contentVersion;
   const bool dst_is_cube =
       dst->viewDimension == plume::RenderTextureViewDimension::TEXTURE_CUBE;
   const u32 level = dst_is_cube ? dst->resolveLevel : 0u;
@@ -487,6 +491,8 @@ void Video::ResolveRtToTexture(GuestTexture *dst,
   GuestTexture *src = dst->sourceSurface;
   if (!src || src == dst || !src->texture)
     return;
+  if (s.command_list_open)
+    perf::GpuPassMark(s, "resolve", dst->width, dst->height);
 
   // The guest's rect and point are in guest pixels, and each host surface is
   // scaled by its own host scale.
@@ -650,11 +656,23 @@ void BuildGuestScaleCopiesLocked(VideoState &s) {
     GuestTexture *copy = tex->guestScaleCopy.get();
     if (copy->width != w || copy->height != h)
       continue;
+    // Every draw comes through here, and a pass into a low-scale target
+    // (the glow's ten 320x180 passes) samples the same unchanged full-scale
+    // frame draw after draw: filtering it again each time cost 6 ms a frame
+    // at 3x, plus a render pass break per draw.
+    if (tex->guestScaleCopyFrom == src &&
+        tex->guestScaleCopyVersion == src->contentVersion) {
+      s.sample_overrides[i] = copy;
+      continue;
+    }
     if (CopySurfaceToTextureLocked(s, src, copy,
                                    down ? "GuestScaleCopy" : "GuestScaleUpscale",
                                    down ? CopyFilter::Default
-                                        : CopyFilter::SmoothUpscale))
+                                        : CopyFilter::SmoothUpscale)) {
       s.sample_overrides[i] = copy;
+      tex->guestScaleCopyFrom = src;
+      tex->guestScaleCopyVersion = src->contentVersion;
+    }
   }
 }
 

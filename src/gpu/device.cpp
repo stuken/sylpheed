@@ -510,6 +510,7 @@ void Video::ResizeTexture(GuestTexture *tex, u32 width, u32 height) {
   auto *device = HostDevice();
   if (!device)
     return;
+  ++tex->contentVersion;
 
   NotifyTextureDestroyed(tex);
   ParkTextureGPUObjects(tex);

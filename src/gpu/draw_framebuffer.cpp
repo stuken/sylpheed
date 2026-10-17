@@ -8,6 +8,7 @@
  * @license   BSD 3-Clause License
  *            See LICENSE file in the project root for full license text.
  */
+#include "gpu/gpu_pass_timer.h"
 #include "gpu/frame.h"
 
 #include <mutex>
@@ -178,6 +179,10 @@ bool Video::BindDrawFramebufferLocked(bool color_clear_follows) {
   GuestTexture *rt = nullptr;
   GuestTexture *ds = nullptr;
   ResolveEffectiveTargets(s, rt, ds);
+  if (!s.draw_framebuffer_bound || rt != s.bound_fb_rt || ds != s.bound_fb_ds) {
+    const GuestTexture *t = rt ? rt : ds;
+    perf::GpuPassMark(s, "draw", t ? t->width : 0, t ? t->height : 0);
+  }
 
   for (GuestTexture *t : {rt, ds}) {
     if (!t)
@@ -190,6 +195,11 @@ bool Video::BindDrawFramebufferLocked(bool color_clear_follows) {
   BuildFxaaCopyLocked(s);
   TransitionResolveSources(s, rt, ds);
 
+  // Every call precedes a draw or a clear into the pair.
+  if (rt)
+    ++rt->contentVersion;
+  if (ds)
+    ++ds->contentVersion;
   if (s.draw_framebuffer_bound && rt == s.bound_fb_rt && ds == s.bound_fb_ds) {
     return true;
   }
