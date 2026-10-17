@@ -81,6 +81,11 @@ bool DumpTexture(VideoState &s, GuestTexture *rt,
                  const std::filesystem::path &path) {
   if (!rt || !rt->texture)
     return false;
+  // Never transitioned since it was created, so never written: there is
+  // nothing to read, and copying from an uninitialised render target trips
+  // the D3D12 debug layer (#1422).
+  if (rt->layout == plume::RenderTextureLayout::UNKNOWN)
+    return false;
   const u32 width = rt->width, height = rt->height;
   u32 bpp = 0;
   switch (rt->format) {
@@ -108,10 +113,7 @@ bool DumpTexture(VideoState &s, GuestTexture *rt,
   if (!readback || !list || !fence)
     return false;
 
-  const plume::RenderTextureLayout was =
-      rt->layout == plume::RenderTextureLayout::UNKNOWN
-          ? plume::RenderTextureLayout::SHADER_READ
-          : rt->layout;
+  const plume::RenderTextureLayout was = rt->layout;
   list->begin();
   list->barriers(plume::RenderBarrierStage::COPY,
                  plume::RenderTextureBarrier(
