@@ -146,7 +146,10 @@ public:
   static u32 FanMaxTriangles();
 
   static bool BindDrawFramebuffer();
-  static bool BindDrawFramebufferLocked(bool color_clear_follows = false);
+  // color_written false: the draw cannot write the colour target (a zero
+  // RB_COLOR_MASK, a depth prepass), so resolves pending on it stay pending.
+  static bool BindDrawFramebufferLocked(bool color_clear_follows = false,
+                                        bool color_written = true);
 
   static plume::RenderDevice *HostDevice();
 

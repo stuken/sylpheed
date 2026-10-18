@@ -171,7 +171,8 @@ bool Video::BindDrawFramebuffer() {
   return BindDrawFramebufferLocked();
 }
 
-bool Video::BindDrawFramebufferLocked(bool color_clear_follows) {
+bool Video::BindDrawFramebufferLocked(bool color_clear_follows,
+                                      bool color_written) {
   auto &s = state();
   if (!s.ready || !s.command_list_open)
     return false;
@@ -188,7 +189,19 @@ bool Video::BindDrawFramebufferLocked(bool color_clear_follows) {
     if (!t)
       continue;
     MaterializeInboundLocked(s, t);
-    MaterializeOutboundLocked(s, t);
+    // The colour target's pending resolves keep aliasing it through draws
+    // that cannot change it: the scene's depth prepass runs before its colour
+    // clear, and materializing at the first prepass draw copied the whole
+    // target (0.7 ms at 3x) the clear could have taken by swapping.
+    if (t == rt && !color_written && !color_clear_follows) {
+      bool sampled = false;
+      for (GuestTexture *bound : s.textures)
+        sampled |= bound && SampledTextureLocked(s, bound) == rt;
+      if (!sampled)
+        continue;
+    }
+    MaterializeOutboundLocked(s, t, /*aliasable_only=*/false,
+                              /*content_discarded=*/t == rt && color_clear_follows);
   }
 
   BuildGuestScaleCopiesLocked(s);

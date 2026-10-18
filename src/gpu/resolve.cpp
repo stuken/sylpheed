@@ -37,6 +37,8 @@ REXCVAR_DEFINE_BOOL(sylpheed_scaled_post_filters, true, kCvarGroup,
                     "host pixel and upscale the glow smoothly");
 
 namespace sylpheed::gpu {
+bool TraceFrameActive(); // hooks/draw.cpp
+
 
 namespace {
 
@@ -95,6 +97,7 @@ bool CopySurfaceToTextureLocked(VideoState &s, GuestTexture *src,
 
   s.draw_framebuffer_bound = false;
   ++dst->contentVersion;
+  perf::GpuPassMark(s, reason, dst->width, dst->height);
 
   const bool dims_match =
       src->width == dst->width && src->height == dst->height;
@@ -330,10 +333,68 @@ void Video::ClearTexture(GuestTexture *texture, u32 color_argb) {
   ClearColorTargetLocked(s, texture, ArgbToRenderColor(color_argb));
 }
 
+namespace {
+
+bool OneToOne(const GuestTexture *source, const GuestTexture *dst) {
+  return source->width == dst->width && source->height == dst->height &&
+         source->format == dst->format &&
+         source->sampleCount == plume::RenderSampleCount::COUNT_1 &&
+         dst->resolveScale == 1.0f &&
+         dst->viewDimension != plume::RenderTextureViewDimension::TEXTURE_CUBE;
+}
+
+// The resolve target takes the surface's texture, which holds exactly what
+// the resolve would have copied, and the surface takes the target's, which
+// the clear that follows overwrites whole. Everything bound to a texture
+// (its view, descriptor slot, layout, framebuffers) goes with it; the
+// framebuffer caches are keyed by the attached texture, so they stay right.
+// At 3x each such resolve was a 66 MB copy (0.4 ms of GPU), three a frame.
+bool SwapSurfaceIntoTargetLocked(VideoState &s, GuestTexture *source,
+                                 GuestTexture *dst) {
+  if (!source->textureHolder || source->texture != source->textureHolder.get() ||
+      !dst->textureHolder || dst->texture != dst->textureHolder.get() ||
+      source->hostScale != dst->hostScale || source->mipLevels != 1 ||
+      dst->mipLevels != 1 || dst->sampleCount != source->sampleCount ||
+      dst->viewDimension != plume::RenderTextureViewDimension::TEXTURE_2D ||
+      IsDepthFormat(source->format) || !IsRenderTargetCapable(dst->format))
+    return false;
+  std::swap(source->textureHolder, dst->textureHolder);
+  std::swap(source->texture, dst->texture);
+  std::swap(source->textureView, dst->textureView);
+  std::swap(source->descriptorIndex, dst->descriptorIndex);
+  std::swap(source->layout, dst->layout);
+  std::swap(source->framebuffers, dst->framebuffers);
+  source->framebufferAttached = dst->framebufferAttached = true;
+  if (!source->framebuffers.empty())
+    s.framebuffer_owners.insert(source);
+  if (!dst->framebuffers.empty())
+    s.framebuffer_owners.insert(dst);
+  if (dst->descriptorIndex == kInvalidDescriptorIndex)
+    BindTextureSRVLocked(s, dst);
+  ++source->contentVersion;
+  ++dst->contentVersion;
+  s.draw_framebuffer_bound = false;
+  return true;
+}
+
+} // namespace
+
 bool MaterializeOutboundLocked(VideoState &s, GuestTexture *source,
-                               bool aliasable_only) {
+                               bool aliasable_only, bool content_discarded) {
   if (!source || source->destinationTextures.empty())
     return false;
+  if (content_discarded && source->destinationTextures.size() == 1) {
+    GuestTexture *dst = *source->destinationTextures.begin();
+    if (dst && dst != source && dst->sourceSurface == source &&
+        !dst->pendingDestroy && OneToOne(source, dst) &&
+        SwapSurfaceIntoTargetLocked(s, source, dst)) {
+      if (TraceFrameActive())
+        SYLPHEED_INFO("[trace] Materialize swapped {}x{} -> dst {:p}", source->width,
+                      source->height, static_cast<void *>(dst));
+      DetachSourceSurfaceLocked(s, dst);
+      return true;
+    }
+  }
   bool recorded = false;
   std::vector<GuestTexture *> destinations(source->destinationTextures.begin(),
                                            source->destinationTextures.end());
@@ -344,14 +405,13 @@ bool MaterializeOutboundLocked(VideoState &s, GuestTexture *source,
       DetachSourceSurfaceLocked(s, dst);
       continue;
     }
-    const bool one_to_one =
-        source->width == dst->width && source->height == dst->height &&
-        source->format == dst->format &&
-        source->sampleCount == plume::RenderSampleCount::COUNT_1 &&
-        dst->resolveScale == 1.0f &&
-        dst->viewDimension != plume::RenderTextureViewDimension::TEXTURE_CUBE;
+    const bool one_to_one = OneToOne(source, dst);
     if (aliasable_only && !one_to_one)
       continue;
+    if (TraceFrameActive())
+      SYLPHEED_INFO("[trace] Materialize outbound {}x{} -> dst {:p} {}x{}{}", source->width,
+                    source->height, static_cast<void *>(dst), dst->width, dst->height,
+                    one_to_one ? " (1:1)" : "");
     if (CopySurfaceToTextureLocked(s, source, dst, "Materialize")) {
       recorded = true;
       DetachSourceSurfaceLocked(s, dst);
@@ -363,6 +423,10 @@ bool MaterializeOutboundLocked(VideoState &s, GuestTexture *source,
 void MaterializeInboundLocked(VideoState &s, GuestTexture *dst) {
   if (!dst || !dst->sourceSurface || dst->sourceSurface == dst)
     return;
+  if (TraceFrameActive())
+    SYLPHEED_INFO("[trace] Materialize inbound {}x{} -> dst {:p} {}x{}",
+                  dst->sourceSurface->width, dst->sourceSurface->height,
+                  static_cast<void *>(dst), dst->width, dst->height);
   if (CopySurfaceToTextureLocked(s, dst->sourceSurface, dst, "Materialize")) {
     DetachSourceSurfaceLocked(s, dst);
   }

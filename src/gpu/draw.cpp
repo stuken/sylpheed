@@ -21,6 +21,8 @@
 #include "core/profiling.h"
 #include "gpu/backend.h"
 #include "gpu/constant_buffers.h"
+#include "gpu/gpu_pass_timer.h"
+#include "gpu/perf_stats.h"
 #include "gpu/format.h"
 #include "gpu/pipeline/pipeline_cache.h"
 #include "gpu/pipeline/pso_recorder.h"
@@ -363,6 +365,12 @@ bool Video::FlushRenderStateLocked(u32 device_guest) {
   }
 
   s.dirtyStates = DirtyStates(false);
+  if (perf::Enabled()) {
+    const GuestShader *ps = s.pipelineState.pixelShader;
+    const GuestTexture *t = s.bound_fb_rt ? s.bound_fb_rt : s.bound_fb_ds;
+    perf::GpuDrawMark(s, ps && ps->shaderCacheEntry ? ps->shaderCacheEntry->hash : 0,
+                      t ? t->width : 0, t ? t->height : 0);
+  }
   return true;
 }
 

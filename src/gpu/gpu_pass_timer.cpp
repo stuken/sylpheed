@@ -10,17 +10,26 @@
 #include <tuple>
 #include <vector>
 
+#include <unordered_map>
+
 #include <plume_render_interface.h>
+#include <rex/cvar.h>
 
 #include "gpu/device.h"
+#include "core/settings.h"
 #include "gpu/perf_stats.h"
+
+REXCVAR_DEFINE_BOOL(sylpheed_perf_gpu_draws, false, kCvarGroup,
+                    "With sylpheed_perf_stats, time every draw on the GPU and "
+                    "report it by pixel shader instead of by pass");
 
 namespace sylpheed::gpu::perf {
 
 namespace {
 
-// Marks per frame: a mission frame binds about 60 targets and resolves 30.
-constexpr u32 kMaxMarks = 512;
+// Marks per frame: a mission frame binds about 60 targets, resolves 30 and,
+// timed per draw, draws about 430 times.
+constexpr u32 kMaxMarks = 4096;
 
 struct Mark {
   const char *label;
@@ -90,6 +99,18 @@ void GpuPassMark(VideoState &s, const char *label, u32 width, u32 height) {
   WriteMark(s, g_slots[slot_index], label, width, height);
 }
 
+void GpuDrawMark(VideoState &s, u64 pixel_shader_hash, u32 width, u32 height) {
+  if (!REXCVAR_GET(sylpheed_perf_gpu_draws))
+    return;
+  // Labels must outlive the frame: one per shader, kept for the session.
+  static std::unordered_map<u64, std::string> s_labels;
+  auto [it, added] = s_labels.try_emplace(pixel_shader_hash);
+  if (added)
+    it->second = std::format("ps {:016X}", pixel_shader_hash);
+  const u32 slot_index = s.frame.load(std::memory_order_relaxed);
+  WriteMark(s, g_slots[slot_index], it->second.c_str(), width, height);
+}
+
 void GpuSlotRetired(VideoState &s, u32 slot_index) {
   (void)s;
   Slot &slot = g_slots[slot_index];
@@ -124,7 +145,7 @@ std::string TakeGpuPassReport(u64 frames) {
   std::string out = std::format("\n    GPU {:.2f} ms/frame", double(g_frame_ns) / 1e6 / double(frames));
   u32 shown = 0;
   for (const auto &[key, total] : rows) {
-    if (++shown > 14)
+    if (++shown > (REXCVAR_GET(sylpheed_perf_gpu_draws) ? 30u : 14u))
       break;
     const auto &[label, w, h] = key;
     const std::string what =

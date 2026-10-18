@@ -410,7 +410,7 @@ void Video::Clear(u32 flags, const plume::RenderColor &color, float depth,
   const bool clear_stencil = (flags & kClearStencil) != 0 && ds != nullptr;
   if (!clear_color && !clear_depth && !clear_stencil)
     return;
-  if (!BindDrawFramebufferLocked(clear_color))
+  if (!BindDrawFramebufferLocked(clear_color, /*color_written=*/clear_color))
     return;
   if (clear_color)
     s.command_list->clearColor(0, color);

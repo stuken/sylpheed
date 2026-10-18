@@ -45,8 +45,11 @@ enum class CopyFilter {
 bool CopySurfaceToTextureLocked(VideoState &s, GuestTexture *src,
                                 GuestTexture *dst, const char *reason,
                                 CopyFilter filter = CopyFilter::Default);
+// content_discarded: the source is about to be cleared whole, so a single
+// pending one-to-one resolve target may take its texture instead of a copy.
 bool MaterializeOutboundLocked(VideoState &s, GuestTexture *source,
-                               bool aliasable_only = false);
+                               bool aliasable_only = false,
+                               bool content_discarded = false);
 void MaterializeInboundLocked(VideoState &s, GuestTexture *dst);
 void DetachSourceSurfaceLocked(VideoState &s, GuestTexture *texture);
 bool FullscreenChainClassLocked(const VideoState &s, const GuestTexture *t);

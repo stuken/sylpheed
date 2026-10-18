@@ -23,6 +23,9 @@ void GpuListOpened(VideoState &s, u32 slot);
 void GpuListClosing(VideoState &s, u32 slot);
 // A pass starts here. label must outlive the frame (a string literal).
 void GpuPassMark(VideoState &s, const char *label, u32 width = 0, u32 height = 0);
+// A draw starts here (sylpheed_perf_gpu_draws): its time is filed under its
+// pixel shader and target size instead of the pass.
+void GpuDrawMark(VideoState &s, u64 pixel_shader_hash, u32 width, u32 height);
 // The slot's fence has passed: fold its timestamps into the totals.
 void GpuSlotRetired(VideoState &s, u32 slot);
 // Per-pass totals over `frames` presents, as report lines, and reset them.

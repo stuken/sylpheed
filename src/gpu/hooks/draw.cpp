@@ -684,7 +684,10 @@ void DispatchDraw(u32 device_guest, u32 primitive_type, const DrawArgs &args) {
                         static_cast<xe::PrimitiveType>(primitive_type) ==
                             xe::PrimitiveType::kRectangleList;
   s.point_sprite_draw = point_sprites;
-  if (!Video::BindDrawFramebufferLocked()) {
+  if (!Video::BindDrawFramebufferLocked(
+          /*color_clear_follows=*/false,
+          /*color_written=*/(u32(dev->rbColorMask) & 0xFu) != 0 &&
+              s.pixel_shader != nullptr)) {
     g_stats.no_framebuffer.fetch_add(1, std::memory_order_relaxed);
     return;
   }
@@ -925,7 +928,11 @@ void FlushPendingUP() {
   s.draw_ignores_cull = rect_list;
   s.point_sprite_draw = false;
   g_stats.issued.fetch_add(1, std::memory_order_relaxed);
-  if (!Video::BindDrawFramebufferLocked()) {
+  const auto *up_dev = sylpheed::mem::at<const D3DDevice>(p.device);
+  if (!Video::BindDrawFramebufferLocked(
+          /*color_clear_follows=*/false,
+          /*color_written=*/!up_dev ||
+              ((u32(up_dev->rbColorMask) & 0xFu) != 0 && s.pixel_shader))) {
     g_stats.no_framebuffer.fetch_add(1, std::memory_order_relaxed);
     return;
   }
