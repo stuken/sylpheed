@@ -735,6 +735,15 @@ GuestTexture *ResolveOrMirrorGuestTexture(u32 guest_va) {
   // signature, rehashed at most once per frame.
   xe::xe_gpu_texture_fetch_t fetch;
   std::memcpy(&fetch, fc, sizeof(fetch));
+  // Not a texture's fetch constant: the header's memory was freed and reused
+  // while a stale pointer still named it. Nothing below may size it (a format
+  // outside the table has no block size to divide by).
+  {
+    const rg::FormatInfo *info = rg::FormatInfo::Get(fetch.format);
+    if (fetch.type != xe::FetchConstantType::kTexture || !info ||
+        !info->block_width || !info->block_height)
+      return nullptr;
+  }
   if (!fetch.tiled && fetch.dimension == xe::DataDimension::k2DOrStacked) {
     const u64 frame = GuestMirrorFrame();
     std::lock_guard hash_lock(s_unhooked_mutex);

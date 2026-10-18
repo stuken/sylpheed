@@ -148,12 +148,40 @@ plume::RenderPrimitiveTopology MapPrimitiveType(u32 prim) {
 // then sets those slots to null before the composite draw (0x822CDD2C).
 std::atomic<u32> g_slot_texture[16] = {};
 
+// Whether the texture header at va still describes fetch constant fc: its
+// format, base address and size words (the sampler fields differ, the device
+// folds its sampler state into them). The device holds the base as a physical
+// address (0x0E040000) where the header has its 0xA0000000+ mapping, so the
+// top three bits are not compared.
+bool HeaderMatchesFetch(u32 va, const sylpheed::gpu::DeviceFetchConstant &fc) {
+  const auto *words = sylpheed::mem::try_at<const be_u32>(
+      va + offsetof(sylpheed::gpu::D3DTexture, Format));
+  constexpr u32 kPhysical = 0x1FFFFFFFu;
+  return words && (u32(words[1]) & kPhysical) == (u32(fc.dword[1]) & kPhysical) &&
+         u32(words[2]) == u32(fc.dword[2]);
+}
+
 // Pixel samplers 0..15: device.textures[s] pairs with fetch constant s.
 void BindGuestTextures(const D3DDevice &dev) {
   for (u32 i = 0; i < 16; ++i) {
     u32 tex_va = dev.textures[i];
-    if (!tex_va)
+    if (!tex_va) {
+      // The GPU samples the fetch constant SetTexture copied into the device,
+      // not the header, and a header can be freed without D3DResource_Destroy
+      // (or its memory reused) while the constant lives on. A remembered
+      // header that no longer matches the constant names something else now.
       tex_va = g_slot_texture[i].load(std::memory_order_relaxed);
+      if (tex_va && !HeaderMatchesFetch(tex_va, dev.fetchConstants[i])) {
+        SYLPHEED_WARN_FIRST(8, "slot {}: texture 0x{:08X} no longer matches its "
+                               "fetch constant (dword1 0x{:08X} dword2 0x{:08X}), "
+                               "forgotten",
+                            i, tex_va, u32(dev.fetchConstants[i].dword[1]),
+                            u32(dev.fetchConstants[i].dword[2]));
+        g_slot_texture[i].compare_exchange_strong(tex_va, 0u,
+                                                  std::memory_order_relaxed);
+        tex_va = 0;
+      }
+    }
     if (tex_va) {
       auto *tex = sylpheed::gpu::ResolveOrMirrorGuestTexture(tex_va);
       (tex ? g_stats.textures_resolved : g_stats.textures_unresolved)
