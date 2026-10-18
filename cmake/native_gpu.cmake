@@ -23,7 +23,8 @@ endif()
 
 if(SYLPHEED_VULKAN_EXE)
     add_executable(sylpheed_vk WIN32 ${SYLPHEED_SOURCES} ${SYLPHEED_ICON_RC})
-    target_sources(sylpheed_vk PRIVATE src/platform/input_script.cpp)
+    target_sources(sylpheed_vk PRIVATE src/platform/input_script.cpp
+                                       src/game/lod_scale.cpp)
     target_include_directories(sylpheed_vk PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
     # The recompiled guest code never reads the backend, so both exes link the
     # sylpheed_recomp objects rexglue_setup_target made for sylpheed instead of compiling

@@ -8,3 +8,13 @@
 # and menu frames never reach it, so its first call marks the start of a
 # mission.
 0x822CD4E8 = { name = "Sylpheed_RenderScene" }
+
+# The LOD manager's level selector, hooked by sylpheed_lod_scale
+# (game/lod_scale.cpp). r4 = LODSetID hash, f1 = camera distance; the r3 its
+# callers pass is ignored, it reloads the manager from [0x828F32C4] and finds
+# the set with 0x82256710. Returns the mesh (level +8) of the first level whose
+# FarDistance (level +4) exceeds f1, else the last level's, which is null when
+# that level names no Model. Sets are loaded by 0x82254780 from the
+# DefTables.pak tables listed by 0x82255660. Per-frame caller: 0x82256D78,
+# which passes |[0x828F32D4]+16 - object position| unscaled.
+0x82255D00 = { name = "Sylpheed_SelectLodMesh" }

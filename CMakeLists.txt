@@ -73,6 +73,8 @@ endif()
 
 # Test tooling both renderers share (sylpheed_input_script).
 target_sources(sylpheed PRIVATE src/platform/input_script.cpp)
+# Game-logic hooks both renderers share (sylpheed_lod_scale).
+target_sources(sylpheed PRIVATE src/game/lod_scale.cpp)
 target_include_directories(sylpheed PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 if(SYLPHEED_NATIVE_GPU)
