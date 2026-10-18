@@ -6,6 +6,8 @@
 
 #include <rex/rex_app.h>
 
+#include "icon.generated.h"
+
 #ifdef _WIN32
 #include <timeapi.h>
 #endif
@@ -63,6 +65,11 @@ class SylpheedApp : public rex::ReXApp {
       paths.update_data_root = base_dir / "update";
   }
 
+  void OnPostSetup() override {
+    window()->SetIcon(icon::kIconPNG, icon::kIconPNGSize);
+    window()->SetTitle("Project Sylpheed");
+  }
+
 #ifdef SYLPHEED_NATIVE_GPU
   // Binds to the plume device lazily, once OnPreLaunchModule creates it. The
   // SDK owns and tears this down.
@@ -116,7 +123,6 @@ class SylpheedApp : public rex::ReXApp {
   // Override virtual hooks for customization:
   // void OnLoadXexImage(std::string& xex_image) override {}
   // void OnPostLoadXexImage() override {}
-  // void OnPostSetup() override {}
   // void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {}
   // std::unique_ptr<rex::ui::ImGuiDialog> CreateAchievementsOverlay() override;
   // std::unique_ptr<rex::ui::AchievementNotificationDialog>

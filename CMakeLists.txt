@@ -19,14 +19,54 @@ cmake_dependent_option(SYLPHEED_NATIVE_GPU
 
 include(generated/rexglue.cmake)
 
+# Embedded window icon: the title icon from assets/default.xex (already a
+# codegen input), so no extra asset is checked in or fetched. sylpheed_icon
+# decrypts and LZX-decompresses the XEX with the SDK's lzx_decompress and
+# writes src/icon.generated.h and src/icon.generated.ico, gitignored build
+# artifacts regenerated when the XEX or the tool changes.
+add_executable(sylpheed_icon tools/extract_icon.cpp)
+target_link_libraries(sylpheed_icon PRIVATE rex::runtime)
+if(WIN32)
+    # It runs during the build, before anything has copied the runtime DLL
+    # next to the executables.
+    add_custom_command(TARGET sylpheed_icon POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:sylpheed_icon> $<TARGET_FILE_DIR:sylpheed_icon>
+        COMMAND_EXPAND_LISTS)
+endif()
+set(SYLPHEED_ICON_HEADER ${CMAKE_SOURCE_DIR}/src/icon.generated.h)
+set(SYLPHEED_ICON_ICO ${CMAKE_SOURCE_DIR}/src/icon.generated.ico)
+add_custom_command(
+    OUTPUT ${SYLPHEED_ICON_HEADER} ${SYLPHEED_ICON_ICO}
+    COMMAND sylpheed_icon ${CMAKE_SOURCE_DIR}/assets/default.xex
+            ${SYLPHEED_ICON_HEADER} ${SYLPHEED_ICON_ICO}
+    DEPENDS sylpheed_icon ${CMAKE_SOURCE_DIR}/assets/default.xex
+    COMMENT "Extracting the title icon from assets/default.xex"
+    VERBATIM)
+
+# On Windows the same icon is also the executables' own resource (Explorer,
+# the taskbar before the window opens, Alt-Tab), apart from the in-window icon
+# set at runtime (sylpheed_app.h). The .rc takes the .ico's absolute path, as
+# it is not next to it in an out-of-source build.
+set(SYLPHEED_ICON_RC "")
+if(WIN32)
+    set(SYLPHEED_ICON_ICO_PATH ${SYLPHEED_ICON_ICO})
+    set(SYLPHEED_ICON_RC ${CMAKE_SOURCE_DIR}/src/sylpheed.generated.rc)
+    configure_file(${CMAKE_SOURCE_DIR}/src/sylpheed.rc.in ${SYLPHEED_ICON_RC} @ONLY)
+    # configure_file only stamps the path in: the .ico must exist before the
+    # resource compiler reads it.
+    set_source_files_properties(${SYLPHEED_ICON_RC} PROPERTIES OBJECT_DEPENDS
+                                ${SYLPHEED_ICON_ICO})
+endif()
+
 # Sources
 set(SYLPHEED_SOURCES
     src/main.cpp
+    ${SYLPHEED_ICON_HEADER}
 )
-set(SYLPHEED_ICON_RC "")
 
 if(WIN32)
-    add_executable(sylpheed WIN32 ${SYLPHEED_SOURCES})
+    add_executable(sylpheed WIN32 ${SYLPHEED_SOURCES} ${SYLPHEED_ICON_RC})
 else()
     add_executable(sylpheed ${SYLPHEED_SOURCES})
 endif()
