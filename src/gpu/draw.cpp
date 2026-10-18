@@ -134,8 +134,7 @@ void ReadDeviceRenderState(VideoState &s, u32 device_guest) {
   }
 
   // The guest's own D3D keeps the viewport at +0x3208: its SetRenderTarget
-  // resets it to the surface, and SetViewport overrides it (SYLPHEED renders the
-  // race into all of a 1440x800 target whose depth surface is smaller).
+  // resets it to the surface, and SetViewport overrides it.
   const D3DViewport9 &vp = dev->viewport;
   if (u32(vp.Width) && u32(vp.Height)) {
     Video::SetDirtyValue(s.dirtyStates.viewport, s.viewport.x, float(u32(vp.X)));
@@ -152,8 +151,7 @@ void ReadDeviceRenderState(VideoState &s, u32 device_guest) {
       s.dirtyStates.scissorRect = true;
   }
 
-  // The window scissor is what the hardware clips to. SYLPHEED's env map pass
-  // draws each half of its 256x512 target twice, split by scissor rects.
+  // The window scissor is what the hardware clips to.
   const u32 tl = dev->paScWindowScissorTL;
   const u32 br = dev->paScWindowScissorBR;
   const plume::RenderRect scissor{static_cast<i32>(tl & 0x7FFFu),
@@ -324,22 +322,6 @@ bool Video::FlushRenderStateLocked(u32 device_guest) {
       s.command_list->setGraphicsPushConstants(kGuestPushConstantRangeIndex,
                                                &sc_alloc.gpuAddress,
                                                2 * sizeof(u64), sizeof(u64));
-#endif
-    }
-  }
-
-  // Lens flare occlusion count: the counter UAV (root descriptor 3 on D3D12,
-  // set 4 on Vulkan) for the sun test quad draw bracketed by D3DQuery_Issue
-  // BEGIN/END. The pipeline cache swaps occlusion_count_ps in while counting.
-  if (s.occlusion_counting) {
-    const u32 slot = s.frame.load(std::memory_order_relaxed);
-    if (s.occlusion_counter[slot]) {
-#if defined(SYLPHEED_D3D12)
-      s.command_list->setGraphicsRootDescriptor(
-          s.occlusion_counter[slot]->at(0), 3);
-#else
-      s.command_list->setGraphicsDescriptorSet(
-          s.occlusion_descriptor_set[slot].get(), kOcclusionDescriptorSetIndex);
 #endif
     }
   }

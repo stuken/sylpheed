@@ -38,8 +38,6 @@ enum class CopyFilter {
   Default,
   // A B-spline upscale (copy_color_ps).
   SmoothUpscale,
-  // FXAA at the same size (fxaa_ps).
-  Fxaa,
 };
 
 bool CopySurfaceToTextureLocked(VideoState &s, GuestTexture *src,

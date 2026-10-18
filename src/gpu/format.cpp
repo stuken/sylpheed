@@ -163,7 +163,7 @@ bool BCFormatFromGuestByte(u32 guest_format, plume::RenderFormat &out) {
     out = plume::RenderFormat::BC3_UNORM;
     return true;
   case xe::TextureFormat::k_DXN:
-    // sylpheed: two-channel normal maps the race shaders sample.
+    // Two-channel normal maps.
     out = plume::RenderFormat::BC5_UNORM;
     return true;
   case xe::TextureFormat::k_DXT5A:

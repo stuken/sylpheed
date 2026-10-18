@@ -80,8 +80,6 @@ struct GuestTexture {
   // Bumped whenever the texture may have been written: bound as a draw or
   // clear target, copied or resolved into, resized. Never decreases.
   u64 contentVersion = 0;
-  // This texture FXAA'd, for the colour grading pass (BuildFxaaCopyLocked).
-  std::unique_ptr<GuestTexture> fxaaCopy;
   u32 resolveLevel = 0;
   u32 resolveFace = 0;
   bool registered = false;

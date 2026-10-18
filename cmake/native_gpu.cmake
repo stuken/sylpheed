@@ -74,8 +74,7 @@ foreach(shader IN ITEMS copy_vs imgui_vs)
     sylpheed_host_shader(${shader} vs_6_0)
 endforeach()
 foreach(shader IN ITEMS
-        copy_color_ps copy_depth_ps fxaa_ps gamma_correction_ps
-        pfx_occlusion_count_ps imgui_ps)
+        copy_color_ps copy_depth_ps gamma_correction_ps imgui_ps)
     sylpheed_host_shader(${shader} ps_6_0)
 endforeach()
 

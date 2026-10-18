@@ -41,11 +41,8 @@ struct SharedConstants {
   // Bit N set when TEXCOORD<N> is bound R16G16(B16A16)_UINT, and the shader's
   // sintTexcoord() sign-extends to recover the X360 raw-int-as-float vfetch.
   u32 sintTexcoords{}; // c20.y, byte 324
-  // Sun shadow PCF tap scale (g_ShadowPcfScale). The kernel's tap offsets are
-  // shader literals in 1/1024-of-the-map UV units, so their world footprint
-  // grows with the sylpheed_shadow_distance coverage box, so the recompiler
-  // multiplies each by this to hold the penumbra constant in world space.
-  // max(1/distance, 1024/dimension) never scales a tap below one map texel.
+  // g_ShadowPcfScale, which only the recompiler's shadow-kernel rewrite reads
+  // (off for Sylpheed's shaders): held in the layout at its identity.
   float shadowPcfScale{1.0f}; // c20.z, byte 328
   // RB_COLORCONTROL ALPHA_FUNC, the compare the ALPHA_TEST spec constant
   // applies against alphaThreshold (shader_common.h alphaTestCompare).
@@ -104,11 +101,6 @@ ConstantAllocation UploadPixelShaderConstants(u32 device_guest);
 // size == 0 means byte-identical to what is already bound on this command list
 // and the caller can skip the upload + root rebind.
 ConstantAllocation UploadSharedConstants(u32 device_guest);
-
-// Moves every vertex of the following draws by (x, y) host pixels (+x right,
-// +y down) through the NDC offset. Point draws use it to cover the whole host
-// block of a guest pixel at a resolution scale. Reset to (0, 0) after.
-void SetHostPixelNudge(float x, float y);
 
 // Root bindings do not survive begin(), so this drops the 'shared CB still
 // bound' reuse gate. Call on every command list reset.

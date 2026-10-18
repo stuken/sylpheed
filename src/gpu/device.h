@@ -229,11 +229,6 @@ public:
 
   static void FlushViewport();
 
-  // Held across the 2D overlay drain, where every draw's vertices are in
-  // design canvas coordinates and get fit to the render rect one at a time.
-  static void SetDesignCanvasDrain(bool on);
-  static bool DesignCanvasDrain();
-
   // False means a precondition failed and the caller must skip the draw.
   static bool FlushRenderState(u32 device_guest);
   // Same, but the caller holds state().mutex.
@@ -317,7 +312,6 @@ struct VideoState {
   //   root  0   : VS float constants (b0, space4).
   //   root  1   : PS float constants (b1, space4).
   //   root  2   : SharedConstants     (b2, space4).
-  //   root  3   : occlusion counter UAV (u0, space5).
   //   push  0   : 16 bytes at (b3, space4), PIXEL stage, the copy/resolve
   //   helper
   //               block, whose layout matches the shared PushConstants block.
@@ -326,25 +320,10 @@ struct VideoState {
   //               constant buffer device addresses, read by the guest
   //               shaders' [[vk::push_constant]] block via vk::RawBufferLoad,
   //               and [24,40) = the copy/resolve helper block.
-  //   slot 4    : occlusion counter UAV (per-frame set, bound only for the
-  //               occlusion count draw).
   std::unique_ptr<plume::RenderPipelineLayout> pipeline_layout;
   std::unique_ptr<plume::RenderPipeline> copy_color_pipeline;
   std::unique_ptr<plume::RenderPipeline> gamma_correction_pipeline;
   std::unique_ptr<plume::RenderShader> gamma_correction_ps;
-  // Per slot, so a pipelined frame cannot clobber an in-flight copy.
-  std::unique_ptr<plume::RenderShader> occlusion_count_ps;
-  // Vulkan stand-in for the D3D12 root UAV (main layout set 4). Unconditional
-  // so VideoState has one layout for both backends.
-  std::unique_ptr<plume::RenderDescriptorSet>
-      occlusion_descriptor_set[kNumFrames];
-  std::unique_ptr<plume::RenderBuffer> occlusion_counter[kNumFrames];
-  std::unique_ptr<plume::RenderBuffer> occlusion_readback[kNumFrames];
-  std::unique_ptr<plume::RenderBuffer> occlusion_zero; // UploadBuffer 4B (=0)
-  bool occlusion_counting = false; // between D3DQuery_Issue BEGIN and END
-  bool occlusion_result_pending[kNumFrames] =
-      {}; // per-slot: counter->readback copy in flight
-  u32 occlusion_last_count = 16384; // last sample count (default = visible)
   // Keyed by destination depth format, so D32_FLOAT and D32_FLOAT_S8_UINT both
   // work without a PSO/DSV mismatch.
   std::unordered_map<plume::RenderFormat,
@@ -352,7 +331,6 @@ struct VideoState {
       copy_depth_pipelines_by_format;
   std::unique_ptr<plume::RenderShader> copy_vs;
   std::unique_ptr<plume::RenderShader> copy_color_ps;
-  std::unique_ptr<plume::RenderShader> fxaa_ps;
   std::unique_ptr<plume::RenderShader> copy_depth_ps;
 
   // Keyed by destination RT format (resolve destinations often differ from the
@@ -360,10 +338,6 @@ struct VideoState {
   std::unordered_map<plume::RenderFormat,
                      std::unique_ptr<plume::RenderPipeline>>
       resolve_pipelines_by_format;
-  // The same copy, filtered by fxaa_ps (sylpheed_fxaa).
-  std::unordered_map<plume::RenderFormat,
-                     std::unique_ptr<plume::RenderPipeline>>
-      fxaa_pipelines_by_format;
 
   std::string backend_info;
 
@@ -394,7 +368,6 @@ struct VideoState {
   // guest_scissor is set; otherwise the scissor follows the viewport.
   plume::RenderRect scissor{0, 0, 1280, 720};
   bool guest_scissor = false;
-  bool design_canvas_drain = false;
   // Set by the draw hooks for the draw being recorded: Xenos never face-culls
   // rectangle lists, whatever PA_SU_SC_MODE_CNTL says (Sylpheed's sky
   // backdrop rectangle winds counter-clockwise under a back-face cull).
@@ -458,8 +431,8 @@ struct VideoState {
 
   GuestTexture *textures[16] = {};
   // Per slot, for the draw being recorded: a filtered copy of textures[i] to
-  // sample instead (at the target's scale, or FXAA'd), or null to sample the
-  // texture itself.
+  // sample instead (at the target's scale), or null to sample the texture
+  // itself.
   GuestTexture *sample_overrides[16] = {};
   GuestShader *vertex_shader = nullptr;
   GuestShader *pixel_shader = nullptr;
@@ -529,10 +502,8 @@ void RetireTextureBindingsLocked(VideoState &s, GuestTexture *dead);
 void DrainDescriptorSlotsLocked(VideoState &s, u32 slot);
 plume::RenderPipeline *GetOrCreateCopyDepthPipeline(VideoState &s,
                                                     plume::RenderFormat fmt);
-// fxaa: the copy runs fxaa_ps instead of copy_color_ps.
 plume::RenderPipeline *GetOrCreateResolvePipeline(VideoState &s,
-                                                  plume::RenderFormat format,
-                                                  bool fxaa = false);
+                                                  plume::RenderFormat format);
 bool DiagShouldLog(u64 site, const GuestTexture *t, u32 *n_out);
 void DestroyResourceNow(u32 guest_va, ResourceType type);
 void ParkTextureGPUObjects(GuestTexture *tex);
@@ -547,8 +518,5 @@ GuestTexture *SampledTextureLocked(const VideoState &s, GuestTexture *tex);
 // from the draw's target, at the target's scale. Records copies, so it runs
 // before the draw framebuffer is bound.
 void BuildGuestScaleCopiesLocked(VideoState &s);
-// Under sylpheed_fxaa, an FXAA'd copy of the frame the colour grading pass reads,
-// into sample_overrides. Runs after BuildGuestScaleCopiesLocked.
-void BuildFxaaCopyLocked(VideoState &s);
 
 } // namespace sylpheed::gpu

@@ -140,8 +140,7 @@ bool ForgetGuestSurface(u32 surface_va) {
 
 namespace {
 // Xenos depth shares the colour surface's EDRAM pitch, so a depth surface
-// smaller than its colour target still covers it: SYLPHEED pairs its 1280x720
-// depth with the 1440x800 race target. D3D12 clips rendering to the smallest
+// smaller than its colour target still covers it. D3D12 clips rendering to the smallest
 // attachment, so the host depth texture grows to cover whatever colour target
 // it is bound with (once; it keeps the larger size). Called outside the state
 // lock, which ResizeTexture takes.

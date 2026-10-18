@@ -2,7 +2,7 @@
 //
 // Pipeline precache. A cold pipeline compile takes 10-20 ms on the drawing
 // thread (a first run, or after a driver update empties the driver's cache),
-// and two races need about a hundred, most of them as a race starts. So the
+// and the boot and first mission need about seventy. So the
 // pipelines recorded sessions needed are compiled into the binary
 // (cache/pipeline_state_cache.h) and built on background threads as soon as
 // their shaders (all created at boot) and vertex declaration (created as
@@ -203,7 +203,7 @@ std::string FloatLiteral(float v) {
 // One designated initializer naming every field that differs from a default
 // PipelineState, in declaration order.
 std::string EmitEntry(const PipelineState &s) {
-  static_assert(sizeof(PipelineState) == 156,
+  static_assert(sizeof(PipelineState) == 154,
                 "PipelineState changed: update EmitEntry and recapture");
   const PipelineState d{};
   std::string out = "    {";
@@ -288,9 +288,6 @@ std::string EmitEntry(const PipelineState &s) {
             d.enableAlphaToCoverage);
   Field(out, "specConstants", s.specConstants, d.specConstants,
         std::format("0x{:X}", s.specConstants));
-  BoolField(out, "occlusionCounting", s.occlusionCounting,
-            d.occlusionCounting);
-  BoolField(out, "enhancedDOF", s.enhancedDOF, d.enhancedDOF);
   if (out.back() == ',')
     out.pop_back();
   out += "},\n";
@@ -361,7 +358,7 @@ void ReplayBootCache() {
   g_replay_start = std::chrono::steady_clock::now();
   g_pending = g_compiled_in;
   // Pipeline compiles are CPU bound in the driver. A few threads finish a
-  // race's worth during its loading screen without starving the game.
+  // mission's worth during its loading without starving the game.
   const u32 threads =
       std::clamp(std::thread::hardware_concurrency() / 4, 1u, 4u);
   for (u32 i = 0; i < threads; ++i)

@@ -205,7 +205,6 @@ bool Video::BindDrawFramebufferLocked(bool color_clear_follows,
   }
 
   BuildGuestScaleCopiesLocked(s);
-  BuildFxaaCopyLocked(s);
   TransitionResolveSources(s, rt, ds);
 
   // Every call precedes a draw or a clear into the pair.

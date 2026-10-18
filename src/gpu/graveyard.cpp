@@ -46,8 +46,7 @@ void DetachMirrorsLocked(VideoState &s, GuestTexture *dead) {
       slot = nullptr;
   }
   for (auto &copy : s.sample_overrides) {
-    if (copy && (copy == dead || copy == dead->guestScaleCopy.get() ||
-                 copy == dead->fxaaCopy.get()))
+    if (copy && (copy == dead || copy == dead->guestScaleCopy.get()))
       copy = nullptr;
   }
   if (dead->mappedMemory) {
@@ -95,8 +94,6 @@ void ParkTextureGPUObjects(GuestTexture *tex) {
     ParkTextureGPUObjects(tex->companion2D.get());
   if (tex->guestScaleCopy)
     ParkTextureGPUObjects(tex->guestScaleCopy.get());
-  if (tex->fxaaCopy)
-    ParkTextureGPUObjects(tex->fxaaCopy.get());
 }
 
 void DestroyResourceNow(u32 guest_va, ResourceType type) {
@@ -197,8 +194,6 @@ void RetireTextureBindingsLocked(VideoState &s, GuestTexture *dead) {
   // The copy is a render target too: its framebuffers and SRV go with it.
   if (dead->guestScaleCopy)
     RetireTextureBindingsLocked(s, dead->guestScaleCopy.get());
-  if (dead->fxaaCopy)
-    RetireTextureBindingsLocked(s, dead->fxaaCopy.get());
 }
 
 void Video::RetireTextureBindings(GuestTexture *tex) {

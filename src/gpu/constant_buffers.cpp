@@ -28,7 +28,6 @@
 #include "gpu/shaders/shader_cache.h"
 #include "gpu/output.h"
 
-REXCVAR_DECLARE(bool, sylpheed_scaled_post_filters);
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -82,9 +81,6 @@ struct UploadState {
   SharedConstants shared{};
   SharedConstants lastUploaded{};
   SamplerSlotCache samplerSlots[16];
-  float shadowPcfScale = 1.0f;
-  float nudgeX = 0.0f; // SetHostPixelNudge, in host pixels
-  float nudgeY = 0.0f;
   bool sharedBound = false;
   bool ready = false;
 };
@@ -93,11 +89,6 @@ UploadState &upload_state() {
   static UploadState s;
   return s;
 }
-
-// g_ShadowPcfScale is part of the shared-constant layout XenosRecomp emits but
-// no SYLPHEED shader reads it (the recompiler's shadow kernel rewrite is off under
-// RR6_RECOMP), so it stays at its identity.
-void RecomputeShadowPcfScale(UploadState &s) { s.shadowPcfScale = 1.0f; }
 
 bool CreateChunk(UploadChunk &chunk) {
   auto *device = sylpheed::gpu::Video::HostDevice();
@@ -236,7 +227,6 @@ bool TryInit() {
   for (auto &slot : s.samplerSlots)
     slot.valid = false;
   s.sharedBound = false;
-  RecomputeShadowPcfScale(s);
   s.ready = true;
   return true;
 }
@@ -249,44 +239,9 @@ void ResetFrame(u32 slot) {
   FrameUpload &up = s.frames[slot];
   up.chunkIndex = 0;
   up.chunkOffset = 0;
-  RecomputeShadowPcfScale(s);
 }
 
 void InvalidateSharedBinding() { upload_state().sharedBound = false; }
-
-// SYLPHEED renders the race at 1440x800 and resolves it into the 1280x720 frame
-// with four bilinear taps (ps_82060208) in a rotated-grid pattern:
-// sampling_point01/23 (c0, c1) are UV offsets at 1/16, 3/16, 5/16 and 7/16 of
-// an output pixel. At a resolution scale the output pixel shrinks but the
-// offsets don't, so the taps spread over several host pixels and soften the
-// frame. Scaling the pattern about its centroid fits it to one host pixel
-// again. The centroid itself stays: it offsets the quarter-pixel shift the
-// guest gives the full-screen quad.
-constexpr u64 kRaceResolvePSHash = 0x799300B9E6D4210Bull;
-void FitResolvePatternToHostPixel(u8 *block) {
-  if (!REXCVAR_GET(sylpheed_scaled_post_filters))
-    return;
-  auto &vs = sylpheed::gpu::state();
-  auto *ps = vs.pipelineState.pixelShader;
-  if (!ps || !ps->shaderCacheEntry ||
-      ps->shaderCacheEntry->hash != kRaceResolvePSHash)
-    return;
-  const u32 scale = sylpheed::gpu::TargetScaleLocked(vs);
-  if (scale <= 1)
-    return;
-  // c0.xy, c0.zw, c1.xy, c1.zw: the four tap offsets.
-  auto *taps = reinterpret_cast<float *>(block);
-  for (u32 axis = 0; axis < 2; ++axis) {
-    float centroid = 0.0f;
-    for (u32 k = 0; k < 4; ++k)
-      centroid += taps[2 * k + axis];
-    centroid *= 0.25f;
-    for (u32 k = 0; k < 4; ++k) {
-      float &offset = taps[2 * k + axis];
-      offset = centroid + (offset - centroid) / float(scale);
-    }
-  }
-}
 
 ConstantAllocation UploadVertexShaderConstants(u32 device_guest) {
   SYLPHEED_CPU_ZONE("UploadVSConstants");
@@ -313,14 +268,7 @@ ConstantAllocation UploadPixelShaderConstants(u32 device_guest) {
   CopyByteSwap32FlushNaN(alloc.memory,
                          device_guest + offsetof(D3DDevice, psFloatConstants),
                          kConstantBlockBytes);
-  FitResolvePatternToHostPixel(alloc.memory);
   return alloc;
-}
-
-void SetHostPixelNudge(float x, float y) {
-  auto &s = upload_state();
-  s.nudgeX = x;
-  s.nudgeY = y;
 }
 
 ConstantAllocation UploadSharedConstants(u32 device_guest) {
@@ -417,10 +365,10 @@ ConstantAllocation UploadSharedConstants(u32 device_guest) {
 
   s.shared.alphaThreshold = sylpheed::gpu::Video::AlphaThreshold();
   s.shared.alphaTestFunc = sylpheed::gpu::Video::AlphaTestFunc();
-  // PA_SU_VTX_CNTL.PIX_CENTER 0 (D3D9 pixel centres, SYLPHEED's default) shifts
+  // PA_SU_VTX_CNTL.PIX_CENTER 0 (D3D9 pixel centres, the default) shifts
   // every vertex half a pixel right and down, as xenia does, so geometry the
-  // guest pre-offset by -0.5 (the 2x Pac-Man quad) lands on host pixel edges
-  // instead of sampling exactly at texel boundaries.
+  // guest pre-offset by -0.5 lands on host pixel edges instead of sampling
+  // exactly at texel boundaries.
   const auto *dev = sylpheed::mem::at<const D3DDevice>(device_guest);
   const bool d3d9_pixel_center = dev && (u32(dev->paSuVtxCntl) & 0x1u) == 0;
   s.shared.halfPixelOffsetX = d3d9_pixel_center && vs.viewport.width > 0.0f
@@ -444,11 +392,9 @@ ConstantAllocation UploadSharedConstants(u32 device_guest) {
   s.shared.sintTexcoords =
       vs.vertex_declaration ? vs.vertex_declaration->sintTexcoords : 0u;
 
-  s.shared.shadowPcfScale = s.shadowPcfScale;
-
   // D3DRS_VIEWPORTENABLE off (PA_CL_VTE_CNTL x/y scale and offset clear):
-  // the VS outputs render target pixels, as the sun visibility probe quads
-  // do, so map them onto the host viewport's NDC.
+  // the VS outputs render target pixels, so map them onto the host viewport's
+  // NDC.
   {
     const u32 vte = dev ? u32(dev->paClVteCntl) : 0x43Fu;
     const float vw = vs.viewport.width, vh = vs.viewport.height;
@@ -458,20 +404,14 @@ ConstantAllocation UploadSharedConstants(u32 device_guest) {
     s.shared.ndcOffsetX = x_window ? -1.0f - 2.0f * vs.viewport.x / vw : 0.0f;
     s.shared.ndcScaleY = y_window ? -2.0f / vh : 1.0f;
     s.shared.ndcOffsetY = y_window ? 1.0f + 2.0f * vs.viewport.y / vh : 0.0f;
-    // The viewport is in guest pixels; a host pixel is 1/scale of one.
-    const float scale = float(sylpheed::gpu::TargetScaleLocked(vs));
-    if (s.nudgeX != 0.0f && vw > 0.0f)
-      s.shared.ndcOffsetX += 2.0f * s.nudgeX / (scale * vw);
-    if (s.nudgeY != 0.0f && vh > 0.0f)
-      s.shared.ndcOffsetY -= 2.0f * s.nudgeY / (scale * vh);
   }
 
   // At a resolution scale above 1, an edge the guest placed less than half a
   // guest pixel inside the viewport still covers the outer guest pixel on
   // hardware (coverage is tested at guest pixel centres), but would miss the
-  // host sub-pixels nearest the edge: SYLPHEED's full-screen stretch sits a quarter
-  // pixel in and left the 3x frame's left and top host pixels at the clear
-  // colour. The VS snaps such vertices onto the edge.
+  // host sub-pixels nearest the edge, leaving a full-screen quad placed a
+  // quarter pixel in short of the frame's left and top host pixels. The VS
+  // snaps such vertices onto the edge.
   {
     const bool scaled = sylpheed::gpu::TargetScaleLocked(vs) > 1;
     s.shared.edgeSnapX = scaled && vs.viewport.width > 0.0f
@@ -490,8 +430,7 @@ ConstantAllocation UploadSharedConstants(u32 device_guest) {
   s.shared.pointSpriteScaleY =
       vs.point_sprite_draw && vs.viewport.height > 0.0f ? 1.0f / vs.viewport.height : 0.0f;
 
-  // SYLPHEED's env map pass splits each half of its target along the diagonal
-  // with clip plane 0, drawing the scene once per side.
+  // User clip planes (PA_CL_CLIP_CNTL), written by the VS as clip distances.
   s.shared.clipPlaneEnable = dev ? u32(dev->paClClipCntl) & 0x3Fu : 0u;
   for (u32 i = 0; i < 6; ++i)
     for (u32 j = 0; j < 4; ++j)

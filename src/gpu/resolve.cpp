@@ -30,11 +30,9 @@
 #include "gpu/output.h"
 #include "gpu/shaders/shader_cache.h"
 
-REXCVAR_DEFINE_BOOL(sylpheed_fxaa, false, kCvarGroup,
-                    "FXAA on the 3D scene, before the HUD is drawn");
 REXCVAR_DEFINE_BOOL(sylpheed_scaled_post_filters, true, kCvarGroup,
-                    "At a resolution scale, fit the race resolve's taps to a "
-                    "host pixel and upscale the glow smoothly");
+                    "At a resolution scale, upscale the 320x180 glow smoothly "
+                    "where full-scale passes sample it");
 
 namespace sylpheed::gpu {
 bool TraceFrameActive(); // hooks/draw.cpp
@@ -232,8 +230,7 @@ bool CopySurfaceToTextureLocked(VideoState &s, GuestTexture *src,
     if (depth_dst) {
       pipeline = GetOrCreateCopyDepthPipeline(s, dst->format);
     } else {
-      pipeline = GetOrCreateResolvePipeline(s, dst->format,
-                                            filter == CopyFilter::Fxaa);
+      pipeline = GetOrCreateResolvePipeline(s, dst->format);
     }
     if (!pipeline) {
       static std::atomic<u32> s_warn{0};
@@ -738,46 +735,6 @@ void BuildGuestScaleCopiesLocked(VideoState &s) {
       tex->guestScaleCopyVersion = src->contentVersion;
     }
   }
-}
-
-// SYLPHEED's colour grading pass (ps_82062AB8: colour balance, gamma, monotone)
-// is the last 3D post pass: it reads the resolved frame from slot 0 into the
-// back buffer, and the HUD is drawn straight after. Giving it an FXAA'd copy
-// of that frame anti-aliases the scene without softening the HUD. Grading is
-// per pixel, so filtering just before it is filtering the final scene.
-constexpr u64 kColourGradingPSHash = 0x0D40BDEF428B4D2Dull;
-
-void BuildFxaaCopyLocked(VideoState &s) {
-  if (!REXCVAR_GET(sylpheed_fxaa))
-    return;
-  const GuestShader *ps = s.pixel_shader;
-  if (!ps || !ps->shaderCacheEntry ||
-      ps->shaderCacheEntry->hash != kColourGradingPSHash)
-    return;
-  GuestTexture *tex = s.textures[0];
-  if (!tex || !tex->texture ||
-      tex->viewDimension != plume::RenderTextureViewDimension::TEXTURE_2D ||
-      tex->mipLevels > 1 || !IsRenderTargetCapable(tex->format))
-    return;
-  GuestTexture *src =
-      s.sample_overrides[0] ? s.sample_overrides[0] : SampledTextureLocked(s, tex);
-  if (!src->texture || src->sampleCount != plume::RenderSampleCount::COUNT_1)
-    return;
-  if (!tex->fxaaCopy) {
-    tex->fxaaCopy =
-        CreateGuestScaleCopy(s, src, src->width, src->height, src->hostScale);
-    if (!tex->fxaaCopy) {
-      SYLPHEED_WARN_FIRST(4, "FXAA copy {}x{} fmt={} could not be created",
-                     src->width, src->height, static_cast<int>(src->format));
-      return;
-    }
-  }
-  GuestTexture *copy = tex->fxaaCopy.get();
-  if (copy->width != src->width || copy->height != src->height ||
-      copy->format != src->format)
-    return;
-  if (CopySurfaceToTextureLocked(s, src, copy, "Fxaa", CopyFilter::Fxaa))
-    s.sample_overrides[0] = copy;
 }
 
 } // namespace sylpheed::gpu

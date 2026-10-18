@@ -120,8 +120,7 @@ bool IsNearest(xe::TextureFilter filter) {
 
 // The fetch constant's anisotropy limit, 0 when off. The shaders' tfetch
 // instructions all defer to the fetch constant (kUseFetchConst), so it is the
-// game's whole request. SYLPHEED leaves it kDisabled except on a few race samplers,
-// which ask for 2:1 or 4:1.
+// game's whole request.
 u32 GuestAnisotropy(xe::AnisoFilter filter) {
   switch (filter) {
   case xe::AnisoFilter::kMax_1_1:
@@ -154,8 +153,8 @@ plume::RenderSamplerDesc DecodeFromFetch(const u32 fc[6]) {
                                             : plume::RenderFilter::LINEAR;
   d.minFilter = IsNearest(fetch.min_filter) ? plume::RenderFilter::NEAREST
                                             : plume::RenderFilter::LINEAR;
-  // kBaseMap (D3DTEXF_NONE, the device default, which SYLPHEED keeps for the menus
-  // and many race textures, mipped ones included) samples just the most
+  // kBaseMap (D3DTEXF_NONE, the device default, which games keep for many
+  // textures, mipped ones included) samples just the most
   // detailed allowed level, mip_min_level, as the console did. As in the SDK's texture caches: point mip
   // mode with MaxLOD a quarter level above MinLOD keeps the
   // magnification/minification decision (Vulkan's GL_NEAREST/GL_LINEAR
@@ -166,8 +165,7 @@ plume::RenderSamplerDesc DecodeFromFetch(const u32 fc[6]) {
                      ? plume::RenderMipmapMode::NEAREST
                      : plume::RenderMipmapMode::LINEAR;
   d.minLOD = static_cast<float>(fetch.mip_min_level);
-  // Signed, 5 fractional bits. SYLPHEED sharpens many race textures by 1 to 3
-  // levels this way. The shaders' tfetch instructions carry no bias of their
+  // Signed, 5 fractional bits. The shaders' tfetch instructions carry no bias of their
   // own, so the sampler can apply it whole.
   d.mipLODBias = static_cast<float>(fetch.lod_bias) / 32.0f;
 

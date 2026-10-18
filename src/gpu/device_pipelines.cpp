@@ -22,18 +22,14 @@
 
 #if defined(SYLPHEED_D3D12)
 #include "src/gpu/shaders/hlsl/copy_color_ps.hlsl.dxil.h"
-#include "src/gpu/shaders/hlsl/fxaa_ps.hlsl.dxil.h"
 #include "src/gpu/shaders/hlsl/copy_depth_ps.hlsl.dxil.h"
 #include "src/gpu/shaders/hlsl/copy_vs.hlsl.dxil.h"
 #include "src/gpu/shaders/hlsl/gamma_correction_ps.hlsl.dxil.h"
-#include "src/gpu/shaders/hlsl/pfx_occlusion_count_ps.hlsl.dxil.h"
 #else
 #include "src/gpu/shaders/hlsl/copy_color_ps.hlsl.spirv.h"
-#include "src/gpu/shaders/hlsl/fxaa_ps.hlsl.spirv.h"
 #include "src/gpu/shaders/hlsl/copy_depth_ps.hlsl.spirv.h"
 #include "src/gpu/shaders/hlsl/copy_vs.hlsl.spirv.h"
 #include "src/gpu/shaders/hlsl/gamma_correction_ps.hlsl.spirv.h"
-#include "src/gpu/shaders/hlsl/pfx_occlusion_count_ps.hlsl.spirv.h"
 #endif
 
 namespace sylpheed::gpu {
@@ -181,10 +177,6 @@ bool BuildPipelineLayout(VideoState &s) {
       1, 4, plume::RenderRootDescriptorType::CONSTANT_BUFFER);
   layout_builder.addRootDescriptor(
       2, 4, plume::RenderRootDescriptorType::CONSTANT_BUFFER);
-  // Sun occlusion counter UAV (u0, space5), bound only for the lens flare
-  // occlusion count draw, unused by every normal draw.
-  layout_builder.addRootDescriptor(
-      0, 5, plume::RenderRootDescriptorType::UNORDERED_ACCESS);
 
   // register(b3, space4) in the copy helpers, PIXEL-only. 4 dwords:
   // [0] primary SRV slot, [1] secondary SRV slot, [2]/[3] per-pass floats.
@@ -198,22 +190,6 @@ bool BuildPipelineLayout(VideoState &s) {
                                  kCopyPushConstantByteOffset + sizeof(u32) * 4,
                                  plume::RenderShaderStageFlag::VERTEX |
                                      plume::RenderShaderStageFlag::PIXEL);
-
-  // Sun occlusion counter UAV, set 4: one set per frame slot, pointed at the
-  // lazily created counter by Occlusion::Begin.
-  plume::RenderDescriptorSetBuilder occlusion_set_builder;
-  occlusion_set_builder.begin();
-  occlusion_set_builder.addReadWriteByteAddressBuffer(0);
-  occlusion_set_builder.end();
-  for (u32 i = 0; i < kNumFrames; ++i) {
-    s.occlusion_descriptor_set[i] =
-        occlusion_set_builder.create(s.device.get());
-    if (!s.occlusion_descriptor_set[i]) {
-      SYLPHEED_ERROR("Plume createDescriptorSet for occlusion counter failed");
-      return false;
-    }
-  }
-  layout_builder.addDescriptorSet(occlusion_set_builder);
 #endif
 
   layout_builder.end();
@@ -234,12 +210,8 @@ bool BuildCopyPipeline(VideoState &s) {
                                            "main", kHostShaderFormat);
   s.gamma_correction_ps = s.device->createShader(
       SYLPHEED_SHADER_BLOB(gamma_correction_ps), "main", kHostShaderFormat);
-  s.occlusion_count_ps = s.device->createShader(
-      SYLPHEED_SHADER_BLOB(pfx_occlusion_count_ps), "main", kHostShaderFormat);
-  s.fxaa_ps = s.device->createShader(SYLPHEED_SHADER_BLOB(fxaa_ps), "main",
-                                     kHostShaderFormat);
   if (!s.copy_vs || !s.copy_color_ps || !s.copy_depth_ps ||
-      !s.gamma_correction_ps || !s.occlusion_count_ps || !s.fxaa_ps) {
+      !s.gamma_correction_ps) {
     SYLPHEED_ERROR("Plume createShader for copy helpers failed");
     return false;
   }
@@ -312,17 +284,15 @@ plume::RenderPipeline *GetOrCreateCopyDepthPipeline(VideoState &s,
 // D3DDevice_Resolve targets can be any format, and one pipeline cannot cover
 // all of them, so the pipelines are cached per format.
 plume::RenderPipeline *GetOrCreateResolvePipeline(VideoState &s,
-                                                  plume::RenderFormat format,
-                                                  bool fxaa) {
-  auto &pipelines =
-      fxaa ? s.fxaa_pipelines_by_format : s.resolve_pipelines_by_format;
+                                                  plume::RenderFormat format) {
+  auto &pipelines = s.resolve_pipelines_by_format;
   auto it = pipelines.find(format);
   if (it != pipelines.end())
     return it->second.get();
   plume::RenderGraphicsPipelineDesc desc;
   desc.pipelineLayout = s.pipeline_layout.get();
   desc.vertexShader = s.copy_vs.get();
-  desc.pixelShader = fxaa ? s.fxaa_ps.get() : s.copy_color_ps.get();
+  desc.pixelShader = s.copy_color_ps.get();
   desc.depthFunction = plume::RenderComparisonFunction::ALWAYS;
   desc.depthEnabled = false;
   desc.depthWriteEnabled = false;
@@ -332,8 +302,7 @@ plume::RenderPipeline *GetOrCreateResolvePipeline(VideoState &s,
   desc.renderTargetFormat[0] = format;
   desc.renderTargetBlend[0] = plume::RenderBlendDesc::Copy();
   desc.depthTargetFormat = plume::RenderFormat::UNKNOWN;
-  auto pipeline = CreateHostGraphicsPipeline(s.device.get(), desc,
-                                             fxaa ? "fxaa" : "resolve");
+  auto pipeline = CreateHostGraphicsPipeline(s.device.get(), desc, "resolve");
   if (!pipeline)
     return nullptr;
   auto *raw = pipeline.get();

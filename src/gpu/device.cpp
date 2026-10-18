@@ -314,8 +314,7 @@ bool Video::CreateHostDevice(rex::ui::Window *window) {
     }
     s.backend_info = DescribeBackend(s.device.get());
     s.depth_stencil_format = PickDepthStencilFormat(s.device.get());
-    // RGBA16F, never R11G11B10: SYLPHEED's sun visibility probe writes the scene's
-    // alpha channel and reads it back through a resolve.
+    // RGBA16F, never R11G11B10: the scene's alpha channel survives resolves.
     s.scene_color_format = plume::RenderFormat::R16G16B16A16_FLOAT;
     // The guest's back buffer is 8:8:8:8, and every post pass after the HDR
     // scene (tonemap, glow composite, grading) rounds to 8 bits. At a

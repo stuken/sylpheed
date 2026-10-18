@@ -103,7 +103,8 @@ bool Output::RenderSize(u32 &w, u32 &h) {
 
 u32 Output::ResolutionScale() {
   static const u32 scale = [] {
-    // 1440 * 8 stays inside D3D12's 16384 texture limit for the race target.
+    // 1280 * 8 stays inside D3D12's 16384 texture limit for the largest
+    // target (the 1280x800 scene).
     constexpr u32 kMaxScale = 8;
     constexpr u32 kMaxBaseScale = 4;
     const i32 wanted = REXCVAR_GET(sylpheed_resolution_scale);

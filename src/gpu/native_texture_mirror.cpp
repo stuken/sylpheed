@@ -730,9 +730,9 @@ GuestTexture *ResolveOrMirrorGuestTexture(u32 guest_va) {
   // dword1: format/endian/tiled/base, dword2: size, dword5: mip address.
   u64 signature =
       (u64(fc[1]) << 32 | fc[2]) ^ (u64(fc[5]) * 0x9E3779B97F4A7C15ull);
-  // Linear textures are the ones the CPU rewrites (SYLPHEED's boot Pac-Man screen
-  // is a 224x288 k_8_8_8_8 redrawn every frame), so their texels join the
-  // signature, rehashed at most once per frame.
+  // Linear textures are the ones the CPU rewrites (Sylpheed's movie and comms
+  // video planes, every frame they play), so their texels join the signature,
+  // rehashed at most once per frame.
   xe::xe_gpu_texture_fetch_t fetch;
   std::memcpy(&fetch, fc, sizeof(fetch));
   // Not a texture's fetch constant: the header's memory was freed and reused

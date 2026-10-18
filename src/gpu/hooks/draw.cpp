@@ -106,9 +106,8 @@ struct DrawArgs {
 
 plume::RenderPrimitiveTopology MapPrimitiveType(u32 prim) {
   switch (static_cast<xe::PrimitiveType>(prim)) {
-  // Points are one guest pixel: no point sprite sizes, and DispatchDraw covers
-  // the host block at a resolution scale. Lines are one host pixel wide,
-  // unscaled; SYLPHEED draws none.
+  // Point lists reach here only when ExpandPointList could not turn them into
+  // sprites (Sylpheed's stars). Lines are one host pixel wide, unscaled.
   case xe::PrimitiveType::kPointList:
     return plume::RenderPrimitiveTopology::POINT_LIST;
   case xe::PrimitiveType::kLineList:
@@ -753,27 +752,6 @@ void DispatchDraw(u32 device_guest, u32 primitive_type, const DrawArgs &args) {
     }
     cmd_list->drawIndexedInstanced(args.vertexOrIndexCount, 1, args.startIndex,
                                    args.baseVertexIndex, 0);
-  } else if (static_cast<xe::PrimitiveType>(primitive_type) ==
-                 xe::PrimitiveType::kPointList &&
-             sylpheed::gpu::TargetScaleLocked(s) > 1) {
-    // A one-pixel guest point covers scale x scale host pixels. Host points
-    // are one pixel, so draw the list once per host pixel of the block, each
-    // pass moved onto that pixel's centre. SYLPHEED's only point draw is the sun
-    // visibility count: 64 additive points summing the probe into one pixel
-    // that the glow reads back bilinearly, so every host pixel of the block
-    // needs the full sum.
-    const u32 scale = sylpheed::gpu::TargetScaleLocked(s);
-    const float centre = 0.5f * float(scale) - 0.5f;
-    for (u32 y = 0; y < scale; ++y) {
-      for (u32 x = 0; x < scale; ++x) {
-        sylpheed::gpu::SetHostPixelNudge(float(x) - centre, float(y) - centre);
-        if (!Video::FlushRenderStateLocked(device_guest))
-          break;
-        cmd_list->drawInstanced(args.vertexOrIndexCount, 1, args.startVertex,
-                                0);
-      }
-    }
-    sylpheed::gpu::SetHostPixelNudge(0.0f, 0.0f);
   } else {
     cmd_list->drawInstanced(args.vertexOrIndexCount, 1, args.startVertex, 0);
   }

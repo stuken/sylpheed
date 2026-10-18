@@ -26,11 +26,10 @@ namespace sylpheed::gpu {
 
 // Size tripwire next to the raw-byte hash: forces a deliberate review on any
 // PipelineState field add/remove/reorder. Replace the literal if the struct
-// legitimately changes (and update the CSV schema + regenerate the PSO cache).
-static_assert(sizeof(PipelineState) == 156,
-              "PipelineState size changed: update kCSVHeader/CsvRow + "
-              "tools/shader_cache/pso_cache_to_header.py and regenerate "
-              "cache/pipeline_state_cache.h.");
+// legitimately changes (and update pso_recorder.cpp EmitEntry).
+static_assert(sizeof(PipelineState) == 154,
+              "PipelineState size changed: update pso_recorder.cpp EmitEntry "
+              "to match.");
 
 void SanitizePipelineState(PipelineState &state) {
   // No color render target -> the output merger color path is inactive, so
@@ -172,7 +171,7 @@ std::unique_ptr<plume::RenderPipeline> Build(const PipelineState &state) {
   desc.depthBias = state.depthBias;
   desc.slopeScaledDepthBias = state.slopeScaledDepthBias;
   desc.depthClipEnabled = true;
-  // The guest polygon offset (SYLPHEED's car shadow quads) varies per draw, so
+  // The guest polygon offset varies per draw, so
   // where the device allows it the bias comes from the command list and the
   // baked fields above stay zero (FlushRenderStateLocked).
   desc.dynamicDepthBiasEnabled = gpu::state().dynamic_depth_bias;
@@ -211,12 +210,7 @@ std::unique_ptr<plume::RenderPipeline> Build(const PipelineState &state) {
   desc.renderTargetBlend[0].srcBlendAlpha = state.srcBlendAlpha;
   desc.renderTargetBlend[0].dstBlendAlpha = state.destBlendAlpha;
   desc.renderTargetBlend[0].blendOpAlpha = state.blendOpAlpha;
-  u8 writeMask = state.colorWriteEnable;
-  if (state.pixelShader && state.pixelShader->shaderCacheEntry &&
-      state.pixelShader->shaderCacheEntry->hash == 0xD94FD5175EEE4951ull) {
-    writeMask &= ~0x8;
-  }
-  desc.renderTargetBlend[0].renderTargetWriteMask = writeMask;
+  desc.renderTargetBlend[0].renderTargetWriteMask = u8(state.colorWriteEnable);
 
   desc.depthTargetFormat = state.depthStencilFormat;
   desc.multisampling.sampleCount = state.sampleCount;

@@ -67,22 +67,15 @@ struct PipelineState {
   plume::RenderSampleCounts sampleCount = plume::RenderSampleCount::COUNT_1;
   bool enableAlphaToCoverage = false;
   u32 specConstants = 0;
-  // When set, the pipeline cache swaps the guest PS for occlusion_count_ps.
-  // Hashed so the counting variant is its own PSO. Off for normal draws.
-  bool occlusionCounting = false;
-  // Dead field, always false, kept only to hold the PSO raw-byte hash / CSV
-  // schema stable. Drop on the next cache regen.
-  bool enhancedDOF = false;
 };
 #pragma pack(pop)
 
 // PipelineState is hashed by raw bytes (XXH3 over sizeof) and embedded by value
 // into the PSO cache, so it must stay a trivially copyable POD. A sizeof
 // change tripwire lives next to the hash in the pipeline cache. sizeof/padding
-// drift is itself safe (the on-disk capture is a field-named CSV plus a
-// designated-initializer header, not a byte image), but any field
-// add/remove/reorder must be matched in kCSVHeader/CsvRow and in the cache
-// and template generators, then the generated caches regenerated.
+// drift is itself safe (the precache list is a designated-initializer header,
+// not a byte image), but a field add/remove/reorder must be matched in the
+// precache writer (pso_recorder.cpp EmitEntry).
 static_assert(std::is_trivially_copyable_v<PipelineState>,
               "PipelineState must stay trivially copyable (raw-byte hashed).");
 

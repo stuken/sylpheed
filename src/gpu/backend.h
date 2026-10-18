@@ -57,7 +57,6 @@ inline constexpr u32 kCopyPushConstantByteOffset = 0;
 inline constexpr u32 kGuestPushConstantRangeIndex = 0;
 inline constexpr u32 kCopyPushConstantRangeIndex = 0;
 inline constexpr u32 kCopyPushConstantByteOffset = 24;
-inline constexpr u32 kOcclusionDescriptorSetIndex = 4;
 #endif
 
 } // namespace sylpheed::gpu

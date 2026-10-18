@@ -216,10 +216,6 @@ void Video::SetDefaultViewport(D3DDevice *device, GuestTexture *surface) {
   (void)device;
 }
 
-void Video::SetDesignCanvasDrain(bool on) { state().design_canvas_drain = on; }
-
-bool Video::DesignCanvasDrain() { return state().design_canvas_drain; }
-
 void Video::FlushViewport() {
   auto &s = state();
   if (!s.command_list)
