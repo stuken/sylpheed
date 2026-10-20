@@ -6,3 +6,7 @@
 	path = thirdparty/XenosRecomp
 	url = https://github.com/stuken/reblue-XenosRecomp.git
 	branch = sylpheed
+[submodule "thirdparty/rexglue-sdk"]
+	path = thirdparty/rexglue-sdk
+	url = https://github.com/stuken/rexglue-sdk.git
+	branch = main

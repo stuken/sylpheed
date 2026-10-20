@@ -1,0 +1,34 @@
+BSD Zero Clause License
+
+Copyright (c) 2026 Stuart Kenny
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+Code under other licenses
+
+The license above covers sylpheed's own code. These parts keep their own terms:
+
+- Files whose header names re:Blue or Tom Clay and the BSD 3-Clause License
+  (most of src/gpu, and parts of src/core, src/platform and tools) are ported
+  from re:Blue, by way of rr6, and remain under its BSD 3-Clause License,
+  reproduced in licenses/reblue-BSD-3-Clause.txt. Redistributions of those
+  files, in source or binary form, must keep that notice.
+- Everything under thirdparty/ (rexglue-sdk, plume, XenosRecomp, miniz, zstd,
+  renderdoc) is under its own license, in its LICENSE file or source headers.
+
+This repository contains nothing from Project Sylpheed: no game data, no code
+recompiled from its executable and no shaders extracted from it. Those are
+generated from the user's own copy at build time and are never committed. The
+game's code, shaders and assets belong to their owners and are not covered by
+any license here.

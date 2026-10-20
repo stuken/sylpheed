@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A ReXGlue static recompilation of the Xbox 360 game Project Sylpheed. The rexglue SDK (found through `rexglue_DIR`/`CMAKE_PREFIX_PATH`, or a source tree via `-DREXSDK_DIR=`) recompiles `assets/default.xex` into C++ under `generated/default/`, and this repo supplies the host app, function hooks, and an optional native renderer.
+A ReXGlue static recompilation of the Xbox 360 game Project Sylpheed. The rexglue SDK (pinned as the `thirdparty/rexglue-sdk` submodule, stuken's fork; found through `rexglue_DIR`/`CMAKE_PREFIX_PATH` pointing at an install, or a source tree via `-DREXSDK_DIR=`) recompiles `assets/default.xex` into C++ under `generated/default/`, and this repo supplies the host app, function hooks, and an optional native renderer.
 
 `assets/` (the game data, including `default.xex`, `default.xexp` and `assets/shaders`) and `generated/default/` are gitignored and never committed. `generated/rexglue.cmake` is SDK-generated: do not edit it.
 
