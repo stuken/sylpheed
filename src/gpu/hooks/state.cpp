@@ -70,10 +70,10 @@ bool GuestSurfaceDesc(PPCContext &ctx, u8 *base, u32 surface,
   static bool s_logged = false;
   if (!s_logged) {
     s_logged = true;
-    SYLPHEED_INFO("D3DSurface_GetDesc(0x{:08X}): format=0x{:08X} type={} {}x{} "
-             "msaa={}",
-             surface, u32(out.Format), u32(out.Type), u32(out.Width),
-             u32(out.Height), u32(out.MultiSampleType));
+    SYLPHEED_DEBUG("D3DSurface_GetDesc(0x{:08X}): format=0x{:08X} type={} {}x{} "
+              "msaa={}",
+              surface, u32(out.Format), u32(out.Type), u32(out.Width),
+              u32(out.Height), u32(out.MultiSampleType));
   }
   return out.Width != 0 && out.Height != 0;
 }
@@ -154,8 +154,8 @@ void GrowDepthToCoverTarget() {
     return;
   const u32 w = std::max(ds->width, rt->width);
   const u32 h = std::max(ds->height, rt->height);
-  SYLPHEED_INFO("depth surface grows {}x{} -> {}x{} to cover its render target",
-           ds->width, ds->height, w, h);
+  SYLPHEED_DEBUG("depth surface grows {}x{} -> {}x{} to cover its render target",
+            ds->width, ds->height, w, h);
   sylpheed::gpu::Video::ResizeTexture(ds, w, h);
   s.draw_framebuffer_bound = false;
 }

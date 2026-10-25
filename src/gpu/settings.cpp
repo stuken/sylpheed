@@ -23,12 +23,14 @@ REXCVAR_DECLARE(bool, sylpheed_vsync);
 REXCVAR_DEFINE_BOOL(sylpheed_geometry_gpu_upload, true, kCvarGroup,
                     "Place static geometry in the GPU_UPLOAD heap when the "
                     "device supports it. Off uses UPLOAD instead, costing the "
-                    "write-combine win on AMD. Requires restart.");
+                    "write-combine win on AMD. Requires restart.")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 REXCVAR_DEFINE_BOOL(sylpheed_dred, true, kCvarGroup,
                     "Record D3D12 auto-breadcrumbs and page-fault allocations "
                     "so a lost device names the op and resource it died on. "
-                    "Costs a little GPU time per op. Requires restart.");
+                    "Costs a little GPU time per op. Requires restart.")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 REXCVAR_DEFINE_STRING(sylpheed_anisotropy, "default", kCvarGroup,
                       "Anisotropic texture filtering. default = what the "
@@ -42,6 +44,7 @@ REXCVAR_DEFINE_INT32(sylpheed_supersampling, 1, kCvarGroup,
                      "(sylpheed_resolution_scale). 1 = off, 2 = on. Requires "
                      "restart.")
     .range(1, 2)
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart)
     .validator([](std::string_view v) {
       int n = 0;
       auto r = std::from_chars(v.data(), v.data() + v.size(), n);
@@ -114,6 +117,10 @@ void Settings::AdoptCvars() {
 
 void Settings::Init() {
   AdoptCvars();
+  // The config file and command line mark each restart-only cvar they set as
+  // pending, though nothing has changed since start-up yet. Cleared so the
+  // settings menus' restart note shows only for changes made in game.
+  rex::cvar::ClearPendingRestartFlags();
 
   auto reg = [](const char *name, void (Settings::*adopt)()) {
     rex::cvar::RegisterChangeCallback(

@@ -40,3 +40,12 @@ REXLOG_DEFINE_CATEGORY(sylpheed)
     if (s_sylpheed_warned.fetch_add(1, std::memory_order_relaxed) < (limit))        \
       SYLPHEED_WARN(__VA_ARGS__);                                                   \
   } while (0)
+
+// The same at the debug level, for paths that are modelled but worth seeing
+// while debugging.
+#define SYLPHEED_DEBUG_FIRST(limit, ...)                                            \
+  do {                                                                         \
+    static std::atomic<unsigned> s_sylpheed_noted{0};                               \
+    if (s_sylpheed_noted.fetch_add(1, std::memory_order_relaxed) < (limit))        \
+      SYLPHEED_DEBUG(__VA_ARGS__);                                                  \
+  } while (0)

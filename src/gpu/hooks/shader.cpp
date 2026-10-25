@@ -46,10 +46,10 @@ Stats g_vs, g_ps;
 bool IsSummaryPoint(u32 n) { return n >= 8 && (n & (n - 1)) == 0; }
 
 void LogStageSummary(const char *stage, const Stats &st) {
-  SYLPHEED_INFO("{} shaders: {} created, {} recompiled cache hits, {} host shaders "
-           "built",
-           stage, st.created.load(), st.cache_hits.load(),
-           st.host_built.load());
+  SYLPHEED_DEBUG("{} shaders: {} created, {} recompiled cache hits, {} host shaders "
+            "built",
+            stage, st.created.load(), st.cache_hits.load(),
+            st.host_built.load());
 }
 
 void TrackCreated(u32 guest_obj, u32 container_va, ResourceType type) {

@@ -171,11 +171,11 @@ void BindGuestTextures(const D3DDevice &dev) {
       // header that no longer matches the constant names something else now.
       tex_va = g_slot_texture[i].load(std::memory_order_relaxed);
       if (tex_va && !HeaderMatchesFetch(tex_va, dev.fetchConstants[i])) {
-        SYLPHEED_WARN_FIRST(8, "slot {}: texture 0x{:08X} no longer matches its "
-                               "fetch constant (dword1 0x{:08X} dword2 0x{:08X}), "
-                               "forgotten",
-                            i, tex_va, u32(dev.fetchConstants[i].dword[1]),
-                            u32(dev.fetchConstants[i].dword[2]));
+        SYLPHEED_DEBUG_FIRST(8, "slot {}: texture 0x{:08X} no longer matches its "
+                                "fetch constant (dword1 0x{:08X} dword2 0x{:08X}), "
+                                "forgotten",
+                             i, tex_va, u32(dev.fetchConstants[i].dword[1]),
+                             u32(dev.fetchConstants[i].dword[2]));
         g_slot_texture[i].compare_exchange_strong(tex_va, 0u,
                                                   std::memory_order_relaxed);
         tex_va = 0;

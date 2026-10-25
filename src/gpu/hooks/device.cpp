@@ -121,9 +121,9 @@ void BindDefaultSurfaces(u32 device_va, u32 params_va) {
   auto create = [&](u32 format) {
     u32 surface = CreateSurface(width, height, format, msaa, 0);
     if (!surface && msaa) {
-      SYLPHEED_WARN("Direct3D_CreateDevice: {}x{} surface (format 0x{:08X}) "
-                    "does not fit EDRAM at multisample type {}, retrying "
-                    "single-sampled", width, height, format, msaa);
+      SYLPHEED_DEBUG("Direct3D_CreateDevice: {}x{} surface (format 0x{:08X}) "
+                     "does not fit EDRAM at multisample type {}, retrying "
+                     "single-sampled", width, height, format, msaa);
       msaa = 0;
       surface = CreateSurface(width, height, format, 0, 0);
     }
@@ -139,10 +139,10 @@ void BindDefaultSurfaces(u32 device_va, u32 params_va) {
       SetDepthStencilSurface(device_va, depth);
   }
   sylpheed::gpu::NoteDefaultSurfaces(back, depth);
-  SYLPHEED_INFO("Direct3D_CreateDevice: {}x{} back buffer 0x{:08X} (format "
-           "0x{:08X}), depth 0x{:08X} (format 0x{:08X}), multisample {} (asked {})",
-           width, height, back, u32(pp->BackBufferFormat), depth,
-           u32(pp->AutoDepthStencilFormat), msaa, u32(pp->MultiSampleType));
+  SYLPHEED_DEBUG("Direct3D_CreateDevice: {}x{} back buffer 0x{:08X} (format "
+            "0x{:08X}), depth 0x{:08X} (format 0x{:08X}), multisample {} (asked {})",
+            width, height, back, u32(pp->BackBufferFormat), depth,
+            u32(pp->AutoDepthStencilFormat), msaa, u32(pp->MultiSampleType));
 }
 
 // D3DVBLANKDATA, what a vertical blank callback is handed.
@@ -332,7 +332,7 @@ u32 Direct3D_CreateDevice_hook(u32 /*adapter*/, u32 /*device_type*/,
 
   if (out_device)
     *out_device = device_va;
-  SYLPHEED_INFO("Direct3D_CreateDevice: guest device at 0x{:08X}", device_va);
+  SYLPHEED_DEBUG("Direct3D_CreateDevice: guest device at 0x{:08X}", device_va);
   return 0;
 }
 
@@ -386,7 +386,7 @@ void PresentFrame(u32 device_va, const char *entry,
     *swaps = u32(*swaps) + 1;
   const u32 s_presents = g_presents.fetch_add(1, std::memory_order_relaxed) + 1;
   if (s_presents == 1)
-    SYLPHEED_INFO("{}: first frame", entry);
+    SYLPHEED_DEBUG("{}: first frame", entry);
   if (s_presents == 60 || (s_presents % 600) == 0)
     sylpheed::gpu::LogDrawStats(s_presents);
   sylpheed::gpu::Video::Present(front_buffer);

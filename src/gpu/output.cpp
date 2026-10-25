@@ -25,7 +25,9 @@
 
 REXCVAR_DEFINE_INT32(sylpheed_resolution_scale, 1, kCvarGroup,
                      "Integer render resolution scale over the guest's 1280x720 "
-                     "(0 = from the output height, 1 = native)");
+                     "(0 = from the output height, 1 = native). Takes effect "
+                     "after a restart.")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 namespace sylpheed::gpu {
 
@@ -84,7 +86,7 @@ bool Output::Recompute() {
     return false;
   g_render_size.store(next, std::memory_order_relaxed);
   g_generation.fetch_add(1, std::memory_order_release);
-  SYLPHEED_INFO("[output-res] render rect -> {}x{}", u32(next >> 32), u32(next));
+  SYLPHEED_DEBUG("[output-res] render rect -> {}x{}", u32(next >> 32), u32(next));
   return true;
 }
 

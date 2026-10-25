@@ -56,7 +56,8 @@ REXCVAR_DEFINE_BOOL(sylpheed_baked_depth_bias, false, kCvarGroup,
 REXCVAR_DEFINE_BOOL(sylpheed_output_16bit, true, kCvarGroup,
                     "Keep the game's back buffer at 16 bits per channel and "
                     "dither at present, instead of the console's 8 bits. "
-                    "Takes effect after a restart.");
+                    "Takes effect after a restart.")
+    .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
 namespace plume {
 #if defined(SYLPHEED_D3D12)
@@ -498,7 +499,7 @@ void Video::SyncBackBufferSizeLocked() {
   s.viewport.width = static_cast<float>(w);
   s.viewport.height = static_cast<float>(h);
   s.dirtyStates.viewport = true;
-  SYLPHEED_INFO("[output-res] back buffer -> {}x{}", w, h);
+  SYLPHEED_DEBUG("[output-res] back buffer -> {}x{}", w, h);
 }
 
 void Video::ResizeTexture(GuestTexture *tex, u32 width, u32 height) {
