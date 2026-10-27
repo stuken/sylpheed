@@ -37,6 +37,8 @@ const char *ReasonName(ShutdownReason r) {
   switch (r) {
   case ShutdownReason::WindowClose:
     return "window-close";
+  case ShutdownReason::MenuQuit:
+    return "menu-quit";
   case ShutdownReason::GuestExit:
     return "guest-exit";
   case ShutdownReason::Fatal:

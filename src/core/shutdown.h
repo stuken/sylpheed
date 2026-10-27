@@ -16,6 +16,7 @@ namespace sylpheed {
 
 enum class ShutdownReason {
   WindowClose, // window X / alt-F4
+  MenuQuit,    // settings menu Quit game
   GuestExit,   // title-menu Exit
   Fatal,       // device lost, unrecoverable file error
   InitFailure, // startup never reached the guest

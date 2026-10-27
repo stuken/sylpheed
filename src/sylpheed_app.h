@@ -112,10 +112,16 @@ class SylpheedApp : public rex::ReXApp {
         });
   }
 
-  // F4 opens sylpheed's short settings menu in place of the SDK's full one,
-  // which the menu still reaches.
+  // F1 opens sylpheed's short settings menu; F4 still opens the SDK's full
+  // one. Its Quit button is clicked inside the ImGui draw, nested in
+  // Present's call to the UI thread, so the shutdown is deferred to the next
+  // pump rather than run there.
   void OnCreateDialogs(rex::ui::ImGuiDrawer* drawer) override {
-    sylpheed::gpu::SettingsOverlay::InstallBind(drawer, config_path_);
+    sylpheed::gpu::SettingsOverlay::InstallBind(drawer, config_path_, [this] {
+      app_context().CallInUIThreadDeferred([] {
+        sylpheed::RequestShutdown(sylpheed::ShutdownReason::MenuQuit);
+      });
+    });
   }
 
   void OnWindowPixelSizeChanged(u32, u32) override {

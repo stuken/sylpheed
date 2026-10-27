@@ -12,7 +12,6 @@
 #include <imgui.h>
 #include <rex/cvar.h>
 #include <rex/ui/keybinds.h>
-#include <rex/ui/overlay/settings_overlay.h>
 
 namespace sylpheed::gpu {
 
@@ -130,29 +129,27 @@ void Section(const char *title) {
 } // namespace
 
 SettingsOverlay::SettingsOverlay(rex::ui::ImGuiDrawer *imgui_drawer,
-                                 std::filesystem::path config_path)
-    : rex::ui::ImGuiDialog(imgui_drawer), config_path_(std::move(config_path)) {}
+                                 std::filesystem::path config_path,
+                                 std::function<void()> quit)
+    : rex::ui::ImGuiDialog(imgui_drawer), config_path_(std::move(config_path)),
+      quit_(std::move(quit)) {}
 
 SettingsOverlay::~SettingsOverlay() = default;
 
 void SettingsOverlay::InstallBind(rex::ui::ImGuiDrawer *imgui_drawer,
-                                  std::filesystem::path config_path) {
-  // A bind can't be registered twice under one name (its key cvar is
-  // registered once), so the menu gets its own bind on the SDK one's key, and
-  // the SDK one is emptied so the keybinds page shows no conflict.
-  std::string key = rex::cvar::GetFlagByName("bind_settings");
-  if (key.empty())
-    key = "F4";
-  rex::ui::UnregisterBind("bind_settings");
-  rex::cvar::SetFlagByName("bind_settings", "");
+                                  std::filesystem::path config_path,
+                                  std::function<void()> quit) {
+  // The SDK's own F4 bind and full dialog are left as they are. F1 is free:
+  // the SDK binds F3, Backtick, F4 and F7.
   rex::ui::RegisterBind(
-      "bind_sylpheed_settings", key, "Toggle settings menu",
-      [imgui_drawer, config_path = std::move(config_path)] {
+      "bind_sylpheed_settings", "F1", "Toggle settings menu",
+      [imgui_drawer, config_path = std::move(config_path),
+       quit = std::move(quit)] {
         if (g_overlay) {
           delete g_overlay;
           g_overlay = nullptr;
         } else {
-          g_overlay = new SettingsOverlay(imgui_drawer, config_path);
+          g_overlay = new SettingsOverlay(imgui_drawer, config_path, quit);
         }
       });
 }
@@ -216,15 +213,39 @@ void SettingsOverlay::OnDraw(ImGuiIO & /*io*/) {
   if (ImGui::Button("Save"))
     rex::cvar::SaveConfig(config_path_);
   ImGui::SameLine();
-  if (ImGui::Button(all_settings_ ? "Hide all settings" : "All settings...")) {
-    if (all_settings_)
-      all_settings_.reset();
-    else
-      all_settings_ = std::make_unique<rex::ui::SettingsDialog>(
-          imgui_drawer(), config_path_);
-  }
-  ImGui::SameLine();
   ImGui::TextDisabled("(%s)", config_path_.filename().string().c_str());
+  // The SDK's bind, read each frame so a rebind shows here.
+  const std::string all_key = rex::cvar::GetFlagByName("bind_settings");
+  if (!all_key.empty()) {
+    ImGui::SameLine();
+    ImGui::TextDisabled("%s: all settings", all_key.c_str());
+  }
+
+  // Right-aligned on the same row, away from Save.
+  const char *quit_label = "Quit game";
+  const float quit_width = ImGui::CalcTextSize(quit_label).x +
+                           ImGui::GetStyle().FramePadding.x * 2.0f;
+  ImGui::SameLine();
+  ImGui::SetCursorPosX(ImGui::GetCursorPosX() +
+                       std::max(0.0f, ImGui::GetContentRegionAvail().x -
+                                          quit_width));
+  if (ImGui::Button(quit_label))
+    ImGui::OpenPopup("Quit game?##sylpheed");
+
+  if (ImGui::BeginPopupModal("Quit game?##sylpheed", nullptr,
+                             ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::TextUnformatted("Quit the game? Unsaved progress is lost.");
+    ImGui::Spacing();
+    if (ImGui::Button("Quit") && quit_) {
+      ImGui::CloseCurrentPopup();
+      quit_();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+      ImGui::CloseCurrentPopup();
+    ImGui::SetItemDefaultFocus();
+    ImGui::EndPopup();
+  }
 
   ImGui::End();
 }
