@@ -169,6 +169,7 @@ These apply to the native renderer:
 | `sylpheed_anisotropy` | `default` | `default` leaves filtering as the game's sampler states set it; `2`, `4`, `8` or `16` forces that level on every linearly filtered sampler. |
 | `sylpheed_fps_limit` | `60` | Frame rate cap, `0` for none. |
 | `sylpheed_vsync` | `true` | Vertical sync. |
+| `sylpheed_frame_pacing` | `auto` | With vsync on and a refresh rate that is a multiple of the cap (120 Hz at 60 fps): `auto` checks whether the display has variable refresh (FreeSync, G-Sync, HDMI VRR) and paces on a timer if it does, or waits that many vblanks per frame if it doesn't. `display` and `timer` force either. |
 | `sylpheed_pso_precache` | `true` | Compile the recorded pipelines in the background before draws need them. |
 | `sylpheed_display_correction` | `true` | Apply the console's HDTV output curve at present, as its D3D programs it. `false` shows the raw frame, with brighter mid-tones. |
 | `sylpheed_output_16bit` | `true` | Keep the game's back buffer at 16 bits per channel and dither at present, instead of the console's 8 bits. Restart to apply. |
